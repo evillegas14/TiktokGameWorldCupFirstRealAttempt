@@ -27,14 +27,15 @@ const config = {
 };
 
 const game = new Phaser.Game(config);
+window.__phaserGame = game;
 
 // Top-level scene transitions driven by server events. Each scene also listens
 // to its own events, but routing live up here keeps the lifecycle simple.
-bus.on('vote:start', () => {
+bus.on('vote:start', (payload) => {
   if (game.scene.isActive('VoteScene')) return;
   game.scene.stop('MatchScene');
   game.scene.stop('WinnerScene');
-  game.scene.start('VoteScene');
+  game.scene.start('VoteScene', payload);
 });
 bus.on('match:start', (payload) => {
   game.scene.stop('VoteScene');

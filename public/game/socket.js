@@ -8,9 +8,17 @@ const events = [
   'match:start', 'match:goal', 'match:end',
   'chat', 'player:join', 'players:count',
   'gift', 'like', 'likes:milestone',
+  'leaderboard', 'tiktok:status',
 ];
+const lastByEvent = {};
 for (const e of events) {
-  socket.on(e, (payload) => bus.emit(e, payload));
+  socket.on(e, (payload) => {
+    lastByEvent[e] = payload;
+    bus.emit(e, payload);
+  });
 }
+
+// Last payload seen for an event — lets a scene that starts after an event read it.
+export function getLast(event) { return lastByEvent[event]; }
 
 export { socket };

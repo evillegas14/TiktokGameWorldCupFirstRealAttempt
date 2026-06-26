@@ -28,6 +28,7 @@ app.use(express.json());
 app.use(express.static(path.join(ROOT, 'public')));
 app.use('/vendor/phaser.min.js', express.static(path.join(ROOT, 'node_modules/phaser/dist/phaser.min.js')));
 app.get('/dev', (_req, res) => res.sendFile(path.join(ROOT, 'public/dev.html')));
+app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
 const server = http.createServer(app);
 const io = new IOServer(server);
@@ -35,6 +36,22 @@ const io = new IOServer(server);
 const votes = new VoteState();
 const players = new PlayerRegistry();
 const match = new MatchState(config);
+
+// Per-match supporter leaderboard (coins gifted), keyed by uniqueId.
+let supporters = new Map();
+function leaderboardTop(n = 5) {
+  return [...supporters.values()]
+    .sort((a, b) => b.coins - a.coins)
+    .slice(0, n)
+    .map((s) => ({ nickname: s.nickname, coins: s.coins, team: s.team }));
+}
+function recordSupporter(user, coins, team) {
+  const prev = supporters.get(user.uniqueId) || { nickname: user.nickname, coins: 0, team: null };
+  prev.nickname = user.nickname || prev.nickname;
+  prev.coins += coins;
+  if (team) prev.team = team;
+  supporters.set(user.uniqueId, prev);
+}
 
 function classifyGift(name, coins) {
   const overrideTier = gifts.namedOverrides[name];
@@ -49,13 +66,15 @@ function broadcast(event, payload) {
   io.emit(event, payload);
 }
 
+let currentVoteEndsAt = 0;
 function startVotePhase() {
   console.log(`[vote] start (${config.voteSeconds}s window)`);
   votes.reset();
   if (config.clearPlayersBetweenMatches) players.clear();
   match.enterVote();
   match.resetLikes();
-  broadcast('vote:start', { seconds: config.voteSeconds, teams });
+  currentVoteEndsAt = Date.now() + config.voteSeconds * 1000;
+  broadcast('vote:start', { seconds: config.voteSeconds, endsAt: currentVoteEndsAt, teams });
   broadcast('players:count', players.counts());
 
   setTimeout(() => {
@@ -71,7 +90,9 @@ function startVotePhase() {
 match.on('match:start', (payload) => {
   console.log(`[match] start ${payload.teamA.code} vs ${payload.teamB.code} (first to ${payload.goalsToWin})`);
   players.clear();
+  supporters = new Map();
   broadcast('players:count', players.counts());
+  broadcast('leaderboard', leaderboardTop());
   broadcast('match:start', payload);
 });
 match.on('match:goal', (payload) => {
@@ -119,6 +140,11 @@ function handleGift(user, gift) {
   const def = classifyGift(gift.name, gift.coins);
   const playerRecord = players.players.get(user.uniqueId);
   const team = playerRecord?.team || null;
+  const totalCoins = (gift.coins || 0) * (gift.repeatCount || 1);
+  if (totalCoins > 0) {
+    recordSupporter(user, totalCoins, team);
+    broadcast('leaderboard', leaderboardTop());
+  }
   broadcast('gift', { user, gift, tier: def.tier, effect: def.effect, def, team });
 }
 
@@ -137,6 +163,10 @@ const bridge = new TikTokBridge(process.env.TIKTOK_USERNAME);
 bridge.on('chat', handleChat);
 bridge.on('gift', handleGift);
 bridge.on('like', handleLike);
+bridge.on('status', (status) => {
+  console.log(`[tiktok] status: ${status.connected ? 'connected' : status.mode}`);
+  broadcast('tiktok:status', status);
+});
 bridge.connect();
 
 // Dev injection endpoints — only enabled for local dev, accessible via /dev page.
@@ -169,9 +199,14 @@ app.post('/dev/reset', (_req, res) => {
 });
 
 io.on('connection', (socket) => {
-  socket.emit('state', { ...match.snapshot(), players: players.all() });
+  socket.emit('state', { ...match.snapshot(), voteEndsAt: currentVoteEndsAt, players: players.all() });
+  socket.emit('leaderboard', leaderboardTop());
+  socket.emit('tiktok:status', bridge.status());
   socket.on('goal:detected', ({ team }) => {
     if (team === 1 || team === 2) match.scoreGoal(team);
+  });
+  socket.on('player:expire', ({ uniqueId }) => {
+    if (players.remove(uniqueId)) broadcast('players:count', players.counts());
   });
 });
 

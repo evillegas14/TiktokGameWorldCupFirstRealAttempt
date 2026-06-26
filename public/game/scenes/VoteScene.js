@@ -1,13 +1,22 @@
-import { bus } from '../socket.js';
+import { bus, getLast } from '../socket.js';
 import { GAME_WIDTH, GAME_HEIGHT } from '../constants.js';
+import { loadFlags, flagKey } from '../world/Flags.js';
 
 export class VoteScene extends Phaser.Scene {
   constructor() { super('VoteScene'); }
 
+  init(data) {
+    // Prefer an absolute end-time so mid-vote joiners see the correct countdown.
+    this.initialEndsAt = data?.endsAt
+      || getLast('vote:start')?.endsAt
+      || getLast('state')?.voteEndsAt
+      || (Date.now() + (data?.seconds || 60) * 1000);
+  }
+
   create() {
     this.teams = this.registry.get('teams') || [];
     this.tally = {};
-    this.endsAt = Date.now() + 60_000;
+    this.endsAt = this.initialEndsAt;
     this.tiles = new Map();
 
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a3b12);
@@ -36,8 +45,16 @@ export class VoteScene extends Phaser.Scene {
       this.tiles.set(team.code, tile);
     });
 
+    // Try to load real national flags; overlay them on the tiles when ready.
+    loadFlags(this, this.teams.map((t) => t.iso), () => {
+      for (const team of this.teams) {
+        const tile = this.tiles.get(team.code);
+        if (tile && this.textures.exists(flagKey(team.iso))) tile.applyFlag(flagKey(team.iso));
+      }
+    });
+
     this.handleVoteStart = (data) => {
-      this.endsAt = Date.now() + (data.seconds * 1000);
+      this.endsAt = data.endsAt || Date.now() + (data.seconds * 1000);
       this.tally = {};
       for (const [, tile] of this.tiles) tile.setCount(0);
     };
@@ -61,6 +78,8 @@ export class VoteScene extends Phaser.Scene {
     const secondary = Phaser.Display.Color.HexStringToColor(team.secondary).color;
 
     const bg = this.add.rectangle(x, y, w, h, primary).setStrokeStyle(3, secondary);
+    // Flag area fills the top of the tile (colored until/if a real flag loads).
+    const flagH = h - 50;
     const code = this.add.text(x, y - 25, team.code, {
       fontSize: '48px', fontFamily: 'Impact', color: '#ffffff',
       stroke: '#000', strokeThickness: 4,
@@ -75,6 +94,14 @@ export class VoteScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     return {
+      applyFlag: (key) => {
+        const img = this.add.image(x, y - 18, key).setDisplaySize(w - 14, flagH);
+        // Put the code label on top of the flag for readability.
+        code.setY(y - 18).setFontSize(34);
+        code.setStroke('#000', 6);
+        img.setDepth(code.depth - 1);
+        name.setY(y + 18);
+      },
       setCount(n, max = 1) {
         const ratio = max > 0 ? n / max : 0;
         bar.width = (w - 20) * ratio;

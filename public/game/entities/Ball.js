@@ -32,6 +32,20 @@ export class Ball {
     }
     if (this.kind === 'super') {
       this.image.setTint(0xff3355);
+      this.image.setDepth(20);
+      // Glowing trail that follows the super-ball.
+      if (scene.textures.exists('fx-dot')) {
+        this.trail = scene.add.particles(0, 0, 'fx-dot', {
+          follow: this.image,
+          speed: 0,
+          lifespan: 350,
+          scale: { start: 3.2, end: 0 },
+          alpha: { start: 0.7, end: 0 },
+          tint: [0xff3355, 0xff8800, 0xffffff],
+          frequency: 18,
+        });
+        this.trail.setDepth(19);
+      }
     }
   }
 
@@ -63,6 +77,7 @@ export class Ball {
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
+    if (this.trail) this.trail.destroy();
     this.image.destroy();
     this.scene.events.emit('ball:despawn', this);
   }

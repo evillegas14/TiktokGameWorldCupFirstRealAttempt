@@ -42,10 +42,20 @@ export class Goalie {
   buff(durationMs, scale) {
     this.buffUntil = this.scene.time.now + durationMs;
     this.scaleMul = scale;
+    if (!this.aura && this.scene.textures.exists('fx-glow')) {
+      this.aura = this.scene.add.image(this.x, this.y, 'fx-glow').setDepth(4).setScale(1.4).setTint(0x00d4ff);
+      this.scene.tweens.add({
+        targets: this.aura, alpha: { from: 0.35, to: 0.7 }, scale: { from: 1.2, to: 1.6 },
+        duration: 500, yoyo: true, repeat: -1,
+      });
+    }
   }
 
   update(_time, delta, balls) {
-    if (this.scene.time.now > this.buffUntil) this.scaleMul = 1;
+    if (this.scene.time.now > this.buffUntil) {
+      this.scaleMul = 1;
+      if (this.aura) { this.aura.destroy(); this.aura = null; }
+    }
 
     // Predict if any ball will reach the goal mouth within ~0.5s
     const goalX = this.team === 1 ? PITCH.left : PITCH.right;
@@ -88,5 +98,6 @@ export class Goalie {
     this.sprite.scaleY = this.scaleMul;
     this.label.x = this.sprite.x;
     this.label.y = this.sprite.y - (BASE_H * this.scaleMul) / 2 - 14;
+    if (this.aura) { this.aura.x = this.sprite.x; this.aura.y = this.sprite.y; }
   }
 }

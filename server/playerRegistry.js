@@ -11,6 +11,10 @@ export class PlayerRegistry {
     return record;
   }
 
+  remove(uniqueId) {
+    return this.players.delete(uniqueId);
+  }
+
   clear() {
     this.players.clear();
   }
