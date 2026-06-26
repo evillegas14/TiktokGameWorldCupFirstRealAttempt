@@ -38,17 +38,28 @@ export function buildHill(scene) {
   g.fillStyle(0x8b5a2b, 0.5);
   g.fillTriangle(leftBaseX, baseY, apexX, apexY, rightBaseX, baseY);
 
-  // Slit marker (dashed line so the gap is visible).
-  const slit = scene.add.graphics();
-  slit.lineStyle(2, 0xffffff, 0.4);
-  for (let x = leftBaseX; x < rightBaseX; x += 16) {
-    slit.lineBetween(x, PITCH.bottom - 4, Math.min(x + 8, rightBaseX), PITCH.bottom - 4);
-  }
+  // Top hopper / ball dropper (NOT a cannon) — balls fall from here onto the hill.
+  const hopperY = PITCH.top + 60;
+  const hop = scene.add.graphics();
+  hop.fillStyle(0x3a3f55, 1);
+  hop.lineStyle(3, 0x9aa3c0, 1);
+  // funnel body
+  hop.fillTriangle(apexX - 70, hopperY - 40, apexX + 70, hopperY - 40, apexX, hopperY + 28);
+  hop.strokeTriangle(apexX - 70, hopperY - 40, apexX + 70, hopperY - 40, apexX, hopperY + 28);
+  // spout
+  hop.fillStyle(0x2a2e40, 1);
+  hop.fillRect(apexX - 14, hopperY + 22, 28, 26);
+  hop.strokeRect(apexX - 14, hopperY + 22, 28, 26);
+  scene.add.text(apexX, hopperY - 58, 'BALL DROP', {
+    fontSize: '18px', fontFamily: 'Impact', color: '#cfd6f0',
+  }).setOrigin(0.5);
+
+  const dropPoint = { x: apexX, y: hopperY + 60 };
 
   return {
     apex: { x: apexX, y: apexY },
     leftCannon: { x: leftBaseX + 30, y: baseY - 50 },
     rightCannon: { x: rightBaseX - 30, y: baseY - 50 },
-    spawnPoint: { x: apexX, y: apexY - 40 },
+    spawnPoint: dropPoint,
   };
 }

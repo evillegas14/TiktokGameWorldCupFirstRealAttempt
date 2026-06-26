@@ -1,4 +1,4 @@
-import { PITCH } from '../world/Field.js';
+import { PITCH, GOAL_Y } from '../world/Field.js';
 
 export class Cannon {
   constructor(scene, team, pos, teamColor) {
@@ -10,7 +10,7 @@ export class Cannon {
     this.barrel = scene.add.rectangle(pos.x, pos.y - 8, 14, 36, color).setStrokeStyle(2, 0x000000);
     // Aim barrel toward opponent goal.
     const goalX = team === 1 ? PITCH.right : PITCH.left;
-    const goalY = (PITCH.top + PITCH.bottom) / 2;
+    const goalY = GOAL_Y;
     const angle = Math.atan2(goalY - pos.y, goalX - pos.x) - Math.PI / 2;
     this.barrel.rotation = angle;
     this.aim = { x: goalX, y: goalY };

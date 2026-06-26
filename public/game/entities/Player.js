@@ -1,4 +1,4 @@
-import { PITCH } from '../world/Field.js';
+import { PITCH, GOAL_Y, floorYAt } from '../world/Field.js';
 import { GAME_WIDTH } from '../constants.js';
 
 const PLAYER_RADIUS = 28;
@@ -12,11 +12,15 @@ export class Player {
     this.team = record.team;
     this.teamColor = teamColor;
 
-    const startX = this.team === 1 ? 250 : GAME_WIDTH - 250;
-    const startY = PITCH.bottom - 80 - Math.random() * 200;
+    // Home position on the team's side of the slope; players drift back here when idle.
+    this.homeX = this.team === 1
+      ? PITCH.left + 280 + Math.random() * 220
+      : PITCH.right - 280 - Math.random() * 220;
+    const startX = this.homeX;
+    const startY = floorYAt(startX) - 60;
 
     this.body = scene.matter.add.circle(startX, startY, PLAYER_RADIUS, {
-      friction: 0.05,
+      friction: 0.4,        // grip the slope so they hold position instead of sliding
       frictionAir: 0.15,
       restitution: 0.3,
       density: 0.004,
@@ -105,7 +109,7 @@ export class Player {
       const contactDist = PLAYER_RADIUS + nearest.radius + 4;
       if (len < contactDist) {
         const goalX = this.team === 1 ? PITCH.right + 40 : PITCH.left - 40;
-        const goalY = (PITCH.top + PITCH.bottom) / 2;
+        const goalY = GOAL_Y;
         const tx = goalX - nearest.x;
         const ty = goalY - nearest.y;
         const tl = Math.hypot(tx, ty) || 1;
@@ -116,7 +120,12 @@ export class Player {
         );
       }
     } else {
-      this.scene.matter.body.setVelocity(this.body, { x: 0, y: 0 });
+      // No ball in range: drift back toward home x, let gravity settle on the slope.
+      const dx = this.homeX - this.body.position.x;
+      this.scene.matter.body.setVelocity(this.body, {
+        x: Phaser.Math.Clamp(dx * 0.04, -2, 2),
+        y: this.body.velocity.y,
+      });
     }
 
     // Clamp x to own side so they don't drift across the field.

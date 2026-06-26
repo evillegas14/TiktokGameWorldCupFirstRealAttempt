@@ -1,7 +1,8 @@
 import { bus, socket } from '../socket.js';
 import { GAME_WIDTH, GAME_HEIGHT } from '../constants.js';
-import { buildField, PITCH } from '../world/Field.js';
+import { buildField, PITCH, GOAL_Y } from '../world/Field.js';
 import { buildHill } from '../world/Hill.js';
+import { createBackground, createBackgroundFX } from '../world/Background.js';
 import { Ball, createBallTextures } from '../entities/Ball.js';
 import { BallSpawner } from '../entities/BallSpawner.js';
 import { Player } from '../entities/Player.js';
@@ -24,6 +25,9 @@ export class MatchScene extends Phaser.Scene {
 
   create() {
     createBallTextures(this);
+
+    createBackground(this, this.teamA.primary, this.teamB.primary);
+    this.fx = createBackgroundFX(this, this.teamA.primary, this.teamB.primary);
 
     const field = buildField(this);
     const hill = buildHill(this);
@@ -167,7 +171,7 @@ export class MatchScene extends Phaser.Scene {
       }
       case 'superBall': {
         const goalX = opponent === 1 ? PITCH.left : PITCH.right;
-        const goalY = (PITCH.top + PITCH.bottom) / 2;
+        const goalY = GOAL_Y;
         this.spawner.spawnSuperBall(goalX, goalY);
         this.#flashAnnouncement(`SUPER BALL incoming!`, '#ff0066');
         break;
@@ -202,5 +206,7 @@ export class MatchScene extends Phaser.Scene {
     socket.emit('goal:detected', { team: scoringTeam });
     this.spawner.respawnAtHill(ball);
     this.#flashAnnouncement('GOAL!', scoringTeam === 1 ? '#ffce00' : '#00d4ff');
+    const goalX = a.label === 'goal-left' ? PITCH.left + 40 : PITCH.right - 40;
+    this.fx?.confettiBurst(goalX, GOAL_Y, 80);
   }
 }

@@ -1,4 +1,4 @@
-import { PITCH } from '../world/Field.js';
+import { PITCH, GOAL_Y } from '../world/Field.js';
 
 const BASE_W = 30;
 const BASE_H = 80;
@@ -12,10 +12,9 @@ export class Goalie {
     this.scaleMul = 1;
     this.jumpCooldownUntil = 0;
 
-    const goalY = (PITCH.top + PITCH.bottom) / 2;
     this.x = team === 1 ? PITCH.left + 70 : PITCH.right - 70;
-    this.baseY = goalY;
-    this.y = goalY;
+    this.baseY = GOAL_Y;     // patrol the goal mouth, centered on its middle
+    this.y = GOAL_Y;
     this.vy = 0;
 
     this.body = scene.matter.add.rectangle(this.x, this.y, BASE_W, BASE_H, {
@@ -71,9 +70,9 @@ export class Goalie {
       this.jumpCooldownUntil = this.scene.time.now + 600;
     }
 
-    // Idle bounce when not actively jumping.
-    this.bounceTime += delta / 250;
-    const idleY = this.baseY + Math.sin(this.bounceTime) * 30;
+    // Idle bounce — patrol most of the goal mouth vertically.
+    this.bounceTime += delta / 220;
+    const idleY = this.baseY + Math.sin(this.bounceTime) * 110;
     const currentY = this.body.position.y;
     if (Math.abs(currentY - idleY) < 4 && Math.abs(this.body.velocity.y) < 0.5) {
       this.scene.matter.body.setPosition(this.body, { x: this.x, y: idleY });
