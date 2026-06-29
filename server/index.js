@@ -67,8 +67,10 @@ function broadcast(event, payload) {
 }
 
 let currentVoteEndsAt = 0;
+let voteTimer = null;
 function startVotePhase() {
   console.log(`[vote] start (${config.voteSeconds}s window)`);
+  if (voteTimer) clearTimeout(voteTimer); // avoid orphan timers on re-entry (e.g. /dev/reset)
   votes.reset();
   if (config.clearPlayersBetweenMatches) players.clear();
   match.enterVote();
@@ -77,7 +79,8 @@ function startVotePhase() {
   broadcast('vote:start', { seconds: config.voteSeconds, endsAt: currentVoteEndsAt, teams });
   broadcast('players:count', players.counts());
 
-  setTimeout(() => {
+  voteTimer = setTimeout(() => {
+    voteTimer = null;
     if (match.phase !== Phase.VOTE) return;
     const [aCode, bCode] = votes.topTwo();
     const teamA = teams.find(t => t.code === aCode) || teams[0];
@@ -198,15 +201,26 @@ app.post('/dev/reset', (_req, res) => {
   res.json({ ok: true });
 });
 
+// Goals are detected client-side; trust only ONE client so multiple connected
+// game windows/tabs can't each report the same goal and double-count it. The
+// first socket to report a goal becomes authoritative; if it disconnects,
+// another can take over.
+let authoritativeSocket = null;
+
 io.on('connection', (socket) => {
   socket.emit('state', { ...match.snapshot(), voteEndsAt: currentVoteEndsAt, players: players.all() });
   socket.emit('leaderboard', leaderboardTop());
   socket.emit('tiktok:status', bridge.status());
   socket.on('goal:detected', ({ team }) => {
+    if (authoritativeSocket && authoritativeSocket !== socket && authoritativeSocket.connected) return;
+    authoritativeSocket = socket;
     if (team === 1 || team === 2) match.scoreGoal(team);
   });
   socket.on('player:expire', ({ uniqueId }) => {
     if (players.remove(uniqueId)) broadcast('players:count', players.counts());
+  });
+  socket.on('disconnect', () => {
+    if (authoritativeSocket === socket) authoritativeSocket = null;
   });
 });
 

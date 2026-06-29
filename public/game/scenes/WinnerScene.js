@@ -47,7 +47,7 @@ export class WinnerScene extends Phaser.Scene {
     this.fireTimer = this.time.addEvent({
       delay: 500, loop: true, callback: () => this.#firework(),
     });
-    this.events.on(Phaser.Scenes.Events.SHUTDOWN, () => this.fireTimer?.remove());
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.fireTimer?.remove());
     this.#firework();
   }
 

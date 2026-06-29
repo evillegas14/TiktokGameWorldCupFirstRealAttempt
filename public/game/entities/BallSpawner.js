@@ -8,10 +8,17 @@ export class BallSpawner {
     this.minBalls = 2;
     this.balls = new Set();
     this.nextSpinSign = 1;
-    scene.events.on('ball:despawn', (ball) => {
+    // Stored handler so we can detach on match teardown (scene.events persists
+    // across scene restarts, so an un-removed listener would leak each match).
+    this._onDespawn = (ball) => {
       this.balls.delete(ball);
       this.#ensureMinimum();
-    });
+    };
+    scene.events.on('ball:despawn', this._onDespawn);
+  }
+
+  destroy() {
+    this.scene.events.off('ball:despawn', this._onDespawn);
   }
 
   #ensureMinimum() {

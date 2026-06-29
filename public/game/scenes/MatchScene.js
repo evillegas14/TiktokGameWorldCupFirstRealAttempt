@@ -77,10 +77,12 @@ export class MatchScene extends Phaser.Scene {
     });
 
     // A player's life ran out: drop it locally and tell the server to update counts.
-    this.events.on('player:expire', (uniqueId) => {
+    // Stored so we can remove it on shutdown (this.events persists across restarts).
+    this.handlerExpire = (uniqueId) => {
       this.players.delete(uniqueId);
       socket.emit('player:expire', { uniqueId });
-    });
+    };
+    this.events.on('player:expire', this.handlerExpire);
 
     // Subscribe to live events.
     this.handlerJoin = (record) => this.#addPlayer(record);
@@ -107,7 +109,8 @@ export class MatchScene extends Phaser.Scene {
     bus.on('leaderboard', this.handlerLeaderboard);
     bus.on('tiktok:status', this.handlerStatus);
 
-    this.events.on(Phaser.Scenes.Events.SHUTDOWN, () => {
+    // once() so the cleanup itself doesn't accumulate across match restarts.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       bus.off('player:join', this.handlerJoin);
       bus.off('players:count', this.handlerCounts);
       bus.off('gift', this.handlerGift);
@@ -116,6 +119,9 @@ export class MatchScene extends Phaser.Scene {
       bus.off('match:goal', this.handlerGoal);
       bus.off('leaderboard', this.handlerLeaderboard);
       bus.off('tiktok:status', this.handlerStatus);
+      this.events.off('player:expire', this.handlerExpire);
+      this.spawner.destroy();
+      this.fx?.destroy();
     });
   }
 

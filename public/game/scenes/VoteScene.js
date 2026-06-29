@@ -50,6 +50,7 @@ export class VoteScene extends Phaser.Scene {
 
     // Try to load real national flags; overlay them on the tiles when ready.
     loadFlags(this, this.teams.map((t) => t.iso), () => {
+      if (!this.sys.isActive()) return; // scene may have moved on before the load finished
       for (const team of this.teams) {
         const tile = this.tiles.get(team.code);
         if (tile && this.textures.exists(flagKey(team.iso))) tile.applyFlag(flagKey(team.iso));
@@ -82,7 +83,7 @@ export class VoteScene extends Phaser.Scene {
     };
     bus.on('vote:start', this.handleVoteStart);
     bus.on('vote:tally', this.handleTally);
-    this.events.on(Phaser.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       bus.off('vote:start', this.handleVoteStart);
       bus.off('vote:tally', this.handleTally);
     });

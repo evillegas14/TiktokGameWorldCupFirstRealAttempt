@@ -29,12 +29,12 @@ export class Ball {
     });
     this.image.setCircle(radius);
     this.image.ballRef = this;
+    this.image.setDepth(this.kind === 'super' ? 20 : 2); // above its ground shadow (depth 1)
 
     if (opts.angularVelocity != null) this.image.setAngularVelocity(opts.angularVelocity);
     if (opts.velocity) this.image.setVelocity(opts.velocity.x, opts.velocity.y);
 
     if (this.kind === 'super') {
-      this.image.setDepth(20);
       // Flaming comet: glow that follows + a fire particle trail.
       if (scene.textures.exists('fx-glow')) {
         this.glow = scene.add.image(x, y, 'fx-glow').setDepth(19).setScale(0.9).setTint(0xff6600).setAlpha(0.8);
@@ -86,7 +86,10 @@ export class Ball {
     if (this.scene.time.now < this.squashUntil) {
       this.image.setScale(1.25, 0.78);
     } else if (this.image.scaleX !== 1) {
-      this.image.setScale(Phaser.Math.Linear(this.image.scaleX, 1, 0.3), Phaser.Math.Linear(this.image.scaleY, 1, 0.3));
+      const nx = Phaser.Math.Linear(this.image.scaleX, 1, 0.3);
+      const ny = Phaser.Math.Linear(this.image.scaleY, 1, 0.3);
+      if (Math.abs(nx - 1) < 0.01) this.image.setScale(1, 1); // snap to avoid lerping forever
+      else this.image.setScale(nx, ny);
     }
 
     if (this.glow) { this.glow.x = this.image.x; this.glow.y = this.image.y; }
