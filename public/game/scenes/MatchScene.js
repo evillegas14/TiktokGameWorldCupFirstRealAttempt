@@ -53,6 +53,9 @@ export class MatchScene extends Phaser.Scene {
     this.#buildHud();
     this.#buildLeaderboard();
     this.#buildStatusBadge();
+    this.#buildVignette();
+    this.#buildHowToPlay();
+    this.#kickoff();
 
     // Audio: unlock on first interaction, then kick off ambience + whistle.
     sfx.unlock();
@@ -197,6 +200,42 @@ export class MatchScene extends Phaser.Scene {
     } else {
       this.statusBadge.setText('DEV MODE').setColor('#bbbbbb');
     }
+  }
+
+  #buildVignette() {
+    // Soft darkened edges for a broadcast look (cheap one-time canvas texture).
+    try {
+      if (!this.textures.exists('vignette')) {
+        const cw = GAME_WIDTH, ch = GAME_HEIGHT;
+        const ct = this.textures.createCanvas('vignette', cw, ch);
+        const ctx = ct.getContext();
+        const g = ctx.createRadialGradient(cw / 2, ch / 2, ch * 0.32, cw / 2, ch / 2, ch * 0.78);
+        g.addColorStop(0, 'rgba(0,0,0,0)');
+        g.addColorStop(1, 'rgba(0,0,0,0.5)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, cw, ch);
+        ct.refresh();
+      }
+      this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'vignette').setDepth(64);
+    } catch (e) { /* canvas texture unsupported — skip vignette */ }
+  }
+
+  #buildHowToPlay() {
+    const y = GAME_HEIGHT - 40;
+    const text = '💬 Type  !join 1  or  !join 2  to play     ·     !vote <CODE>  in voting     ·     🎁 Gifts = power-ups';
+    const t = this.add.text(GAME_WIDTH / 2, y, text, {
+      fontSize: '22px', fontFamily: 'Arial', color: '#ffffff', stroke: '#000', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(66);
+    this.add.rectangle(GAME_WIDTH / 2, y, t.width + 30, 34, 0x000000, 0.5).setDepth(65);
+    t.setDepth(66);
+  }
+
+  #kickoff() {
+    const t = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, '⚽ KICK OFF!', {
+      fontSize: '90px', fontFamily: 'Impact', color: '#ffffff', stroke: '#000', strokeThickness: 8,
+    }).setOrigin(0.5).setDepth(75).setScale(0.2).setAlpha(0);
+    this.tweens.add({ targets: t, scale: 1, alpha: 1, duration: 350, ease: 'Back.out' });
+    this.tweens.add({ targets: t, alpha: 0, scale: 1.4, delay: 900, duration: 400, onComplete: () => t.destroy() });
   }
 
   #screenFlash(color = 0xffffff, alpha = 0.4, duration = 220) {

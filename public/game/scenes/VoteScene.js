@@ -30,12 +30,15 @@ export class VoteScene extends Phaser.Scene {
     this.countdownText = this.add.text(GAME_WIDTH / 2, 165, '', {
       fontSize: '40px', fontFamily: 'Arial', color: '#ffffff',
     }).setOrigin(0.5);
+    this.leaderText = this.add.text(GAME_WIDTH / 2, 210, '', {
+      fontSize: '30px', fontFamily: 'Impact', color: '#ffd700', stroke: '#000', strokeThickness: 3,
+    }).setOrigin(0.5);
 
     const cols = 8;
     const tileW = 200;
     const tileH = 150;
     const startX = (GAME_WIDTH - cols * tileW - (cols - 1) * 20) / 2 + tileW / 2;
-    const startY = 260;
+    const startY = 300;
     this.teams.forEach((team, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
@@ -63,6 +66,18 @@ export class VoteScene extends Phaser.Scene {
       const max = Math.max(1, ...Object.values(tally));
       for (const [code, tile] of this.tiles) {
         tile.setCount(tally[code] || 0, max);
+      }
+      // Highlight the current top two (these play if voting ended now).
+      const ranked = Object.entries(tally).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+      const top = ranked.slice(0, 2).map(([code]) => code);
+      for (const [code, tile] of this.tiles) tile.setLeading(top.includes(code));
+      if (top.length === 2) {
+        const nameOf = (code) => this.teams.find((t) => t.code === code)?.name || code;
+        this.leaderText.setText(`🔥 Leading: ${nameOf(top[0])}  vs  ${nameOf(top[1])}`);
+      } else if (top.length === 1) {
+        this.leaderText.setText('🔥 Needs one more team to vote in…');
+      } else {
+        this.leaderText.setText('');
       }
     };
     bus.on('vote:start', this.handleVoteStart);
@@ -93,6 +108,9 @@ export class VoteScene extends Phaser.Scene {
       fontSize: '14px', color: '#ffffff', stroke: '#000', strokeThickness: 2,
     }).setOrigin(0.5);
 
+    const crown = this.add.text(x, y - h / 2 - 4, '🔥', { fontSize: '26px' }).setOrigin(0.5).setVisible(false);
+    let leading = false;
+
     return {
       applyFlag: (key) => {
         const img = this.add.image(x, y - 18, key).setDisplaySize(w - 14, flagH);
@@ -106,6 +124,13 @@ export class VoteScene extends Phaser.Scene {
         const ratio = max > 0 ? n / max : 0;
         bar.width = (w - 20) * ratio;
         countText.setText(String(n));
+      },
+      setLeading(on) {
+        if (on === leading) return;
+        leading = on;
+        crown.setVisible(on);
+        bg.setStrokeStyle(on ? 7 : 3, on ? 0xffd700 : secondary);
+        bg.setScale(on ? 1.04 : 1);
       },
     };
   }

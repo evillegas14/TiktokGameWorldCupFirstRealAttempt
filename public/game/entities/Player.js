@@ -33,6 +33,8 @@ export class Player {
 
     this.container = scene.add.container(startX, startY);
     const ringColor = Phaser.Display.Color.HexStringToColor(teamColor).color;
+    this.shadow = scene.add.ellipse(0, PLAYER_RADIUS + 4, PLAYER_RADIUS * 1.8, 12, 0x000000, 0.3);
+    this.container.add(this.shadow);
     this.ring = scene.add.circle(0, 0, PLAYER_RADIUS, ringColor).setStrokeStyle(3, 0x000000);
     this.container.add(this.ring);
     this.initials = scene.add.text(0, 0, (record.nickname || record.uniqueId || '?').slice(0, 2).toUpperCase(), {
@@ -40,9 +42,13 @@ export class Player {
       stroke: '#000', strokeThickness: 3,
     }).setOrigin(0.5);
     this.container.add(this.initials);
-    this.label = scene.add.text(0, -PLAYER_RADIUS - 22, record.nickname || record.uniqueId, {
+    // Nameplate with a subtle background pill for readability.
+    const nameStr = record.nickname || record.uniqueId;
+    this.label = scene.add.text(0, -PLAYER_RADIUS - 24, nameStr, {
       fontSize: '14px', color: '#ffffff', stroke: '#000', strokeThickness: 2,
     }).setOrigin(0.5);
+    this.namePlate = scene.add.rectangle(0, -PLAYER_RADIUS - 24, this.label.width + 12, 20, 0x000000, 0.45);
+    this.container.add(this.namePlate);
     this.container.add(this.label);
 
     // Lifespan + health bar.

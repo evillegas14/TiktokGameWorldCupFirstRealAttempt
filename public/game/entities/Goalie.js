@@ -30,10 +30,23 @@ export class Goalie {
     scene.matter.body.setInertia(this.body, Infinity);
 
     const color = Phaser.Display.Color.HexStringToColor(teamColor).color;
-    this.sprite = scene.add.rectangle(this.x, this.y, BASE_W, BASE_H, color).setStrokeStyle(3, 0x000000);
+
+    // Ground shadow stays on the floor and shrinks as the keeper leaps.
+    this.shadow = scene.add.ellipse(this.x, GOAL_Y + BASE_H / 2 + 6, 50, 14, 0x000000, 0.3).setDepth(2);
+
+    // Keeper character: body + head + eyes + gloves, in a container we move/scale.
+    this.sprite = scene.add.container(this.x, this.y).setDepth(6);
+    const body = scene.add.rectangle(0, 10, BASE_W, 52, color).setStrokeStyle(3, 0x000000);
+    const head = scene.add.circle(0, -26, 14, 0xf1c27d).setStrokeStyle(2, 0x000000);
+    const eyeL = scene.add.circle(-5, -28, 2.2, 0x000000);
+    const eyeR = scene.add.circle(5, -28, 2.2, 0x000000);
+    this.gloveL = scene.add.circle(-BASE_W / 2 - 6, 2, 7, 0xffffff).setStrokeStyle(2, 0x000000);
+    this.gloveR = scene.add.circle(BASE_W / 2 + 6, 2, 7, 0xffffff).setStrokeStyle(2, 0x000000);
+    this.sprite.add([body, this.gloveL, this.gloveR, head, eyeL, eyeR]);
+
     this.label = scene.add.text(this.x, this.y - BASE_H / 2 - 14, 'GK', {
       fontSize: '16px', fontFamily: 'Impact', color: '#ffffff', stroke: '#000', strokeThickness: 2,
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(7);
 
     // Rhythmic idle bounce.
     this.bounceTime = Math.random() * Math.PI * 2;
@@ -78,6 +91,8 @@ export class Goalie {
     if (triggerJump && this.scene.time.now > this.jumpCooldownUntil) {
       this.scene.matter.body.setVelocity(this.body, { x: 0, y: -10 });
       this.jumpCooldownUntil = this.scene.time.now + 600;
+      // Throw the gloves up for the save.
+      this.diving = this.scene.time.now + 400;
     }
 
     // Idle bounce — patrol most of the goal mouth vertically.
@@ -96,8 +111,20 @@ export class Goalie {
     this.sprite.y = this.body.position.y;
     this.sprite.scaleX = this.scaleMul;
     this.sprite.scaleY = this.scaleMul;
+
+    // Gloves raise while diving for a save.
+    const diving = this.scene.time.now < (this.diving || 0);
+    const gy = diving ? -34 : 2;
+    this.gloveL.y = Phaser.Math.Linear(this.gloveL.y, gy, 0.4);
+    this.gloveR.y = Phaser.Math.Linear(this.gloveR.y, gy, 0.4);
+
+    // Ground shadow shrinks with jump height.
+    const jump = Phaser.Math.Clamp((this.baseY + 110 - this.body.position.y) / 220, 0, 1);
+    this.shadow.scaleX = (1 - jump * 0.5) * this.scaleMul;
+    this.shadow.setAlpha(0.3 - jump * 0.15);
+
     this.label.x = this.sprite.x;
-    this.label.y = this.sprite.y - (BASE_H * this.scaleMul) / 2 - 14;
+    this.label.y = this.body.position.y - (BASE_H * this.scaleMul) / 2 - 14;
     if (this.aura) { this.aura.x = this.sprite.x; this.aura.y = this.sprite.y; }
   }
 }
