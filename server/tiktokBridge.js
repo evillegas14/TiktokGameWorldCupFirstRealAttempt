@@ -8,6 +8,7 @@ export class TikTokBridge extends EventEmitter {
     this.username = username;
     this.connection = null;
     this.connected = false;
+    this.lastError = null;
     this.reconnectMs = 5000;
   }
 
@@ -16,6 +17,7 @@ export class TikTokBridge extends EventEmitter {
       connected: this.connected,
       mode: this.username ? 'live' : 'dev',
       username: this.username || null,
+      error: this.lastError,
     };
   }
 
@@ -25,6 +27,7 @@ export class TikTokBridge extends EventEmitter {
     try { await this.connection?.disconnect?.(); } catch (e) { /* ignore */ }
     this.connection = null;
     this.connected = false;
+    this.lastError = null; // fresh attempt
     this.username = (mode === 'live' && username)
       ? String(username).replace(/^@+/, '').trim()
       : null;
@@ -77,9 +80,11 @@ export class TikTokBridge extends EventEmitter {
 
       const state = await this.connection.connect();
       this.connected = true;
+      this.lastError = null;
       this.#emitStatus();
       console.log(`[tiktok] Connected to @${this.username} (roomId ${state.roomId})`);
     } catch (err) {
+      this.lastError = err.message || 'connection failed';
       console.error('[tiktok] Connect failed:', err.message);
       this.connected = false;
       this.#emitStatus();
