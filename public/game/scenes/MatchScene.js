@@ -342,28 +342,24 @@ export class MatchScene extends Phaser.Scene {
   }
 
   #announceGift(name, label, color = '#ffffff', tier = 1, coins = 0) {
-    // Stack concurrent banners so simultaneous gifts don't overlap.
+    // Compact single-line toasts that tuck just under the HUD, so they don't
+    // cover the field. Concurrent gifts stack downward (max 3 visible).
     this._activeBanners = (this._activeBanners || 0) + 1;
-    const slot = (this._activeBanners - 1) % 4;
-    const y = GAME_HEIGHT / 2 - 120 - slot * 96;
-    const barW = 520 + tier * 90;
-    const barH = 70 + tier * 12;
-    const labelSize = 34 + tier * 6;
-    const bar = this.add.rectangle(GAME_WIDTH / 2, y, 0, barH, Phaser.Display.Color.HexStringToColor(color).color, 0.88)
-      .setDepth(70).setStrokeStyle(4, 0xffffff);
-    const nameT = this.add.text(GAME_WIDTH / 2, y - barH / 2 + 22, `🎁 ${name}${coins ? `  ·  ${coins}🪙` : ''}`, {
-      fontSize: '28px', fontFamily: 'Arial Black', color: '#000000',
+    const slot = (this._activeBanners - 1) % 3;
+    const y = 150 + slot * 44;
+    const size = 20 + tier * 2; // 22..30 by tier
+    const text = `🎁 ${name} · ${label}${coins ? `  ${coins}🪙` : ''}`;
+    const labelT = this.add.text(GAME_WIDTH / 2, y, text, {
+      fontSize: `${size}px`, fontFamily: 'Impact', color: '#ffffff', stroke: '#000', strokeThickness: 4,
     }).setOrigin(0.5).setDepth(71);
-    const labelT = this.add.text(GAME_WIDTH / 2, y + 14, `${label}`, {
-      fontSize: `${labelSize}px`, fontFamily: 'Impact', color: '#ffffff', stroke: '#000', strokeThickness: 5,
-    }).setOrigin(0.5).setDepth(71);
-    const targets = [bar, nameT, labelT];
-    bar.width = 0;
-    this.tweens.add({ targets: bar, width: barW, duration: 220, ease: 'Back.out' });
-    // Higher tiers linger and pop a bit.
-    this.tweens.add({ targets: [nameT, labelT], scale: { from: 0.8, to: 1 }, duration: 220, ease: 'Back.out' });
+    const bar = this.add.rectangle(GAME_WIDTH / 2, y, labelT.width + 32, size + 14,
+      Phaser.Display.Color.HexStringToColor(color).color, 0.85)
+      .setDepth(70).setStrokeStyle(2, 0xffffff);
+    const targets = [bar, labelT];
+    bar.scaleX = 0;
+    this.tweens.add({ targets: bar, scaleX: 1, duration: 180, ease: 'Back.out' });
     this.tweens.add({
-      targets, alpha: { from: 1, to: 0 }, delay: 1200 + tier * 250, duration: 350,
+      targets, alpha: { from: 1, to: 0 }, delay: 1100 + tier * 150, duration: 300,
       onComplete: () => {
         targets.forEach((t) => t.destroy());
         this._activeBanners = Math.max(0, (this._activeBanners || 1) - 1);
