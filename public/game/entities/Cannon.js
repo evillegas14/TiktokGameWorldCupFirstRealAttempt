@@ -1,5 +1,3 @@
-import { PITCH, GOAL_Y } from '../world/Field.js';
-
 export class Cannon {
   constructor(scene, team, pos, teamColor) {
     this.scene = scene;
@@ -7,11 +5,15 @@ export class Cannon {
     this.pos = pos;
     const color = Phaser.Display.Color.HexStringToColor(teamColor).color;
 
-    // Aim toward the opponent goal.
-    const goalX = team === 1 ? PITCH.right : PITCH.left;
-    const goalY = GOAL_Y;
-    this.angle = Math.atan2(goalY - pos.y, goalX - pos.x);
-    this.aim = { x: goalX, y: goalY };
+    // Point clearly up-and-across toward the opponent goal (lobbing artillery),
+    // so the barrel visibly aims at the far net rather than lying flat.
+    const elevation = Phaser.Math.DegToRad(34);
+    this.angle = team === 1 ? -elevation : Math.PI + elevation; // team1 fires right, team2 fires left
+    // Aim point far along the barrel line; the shot arcs over the hill to the far half.
+    this.aim = {
+      x: pos.x + Math.cos(this.angle) * 1600,
+      y: pos.y + Math.sin(this.angle) * 1600,
+    };
 
     // Carriage wheel.
     this.wheel = scene.add.circle(pos.x, pos.y + 10, 16, 0x2a2a2a).setStrokeStyle(4, 0x111111).setDepth(8);
