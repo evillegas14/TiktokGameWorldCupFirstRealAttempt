@@ -72,6 +72,7 @@ export class MatchScene extends Phaser.Scene {
       for (const pair of event.pairs) {
         this.#handleCollision(pair.bodyA, pair.bodyB);
         this.#handleCollision(pair.bodyB, pair.bodyA);
+        this.#handleBounce(pair.bodyA, pair.bodyB);
       }
     });
 
@@ -266,6 +267,30 @@ export class MatchScene extends Phaser.Scene {
     this.time.delayedCall(900, () => p.destroy());
   }
 
+  // Jagged lightning bolt from the top down to (tx, ty).
+  #lightning(tx, ty) {
+    const pts = [{ x: tx + (Math.random() - 0.5) * 120, y: 0 }];
+    const segs = 9;
+    for (let i = 1; i <= segs; i++) {
+      const y = (ty / segs) * i;
+      const lx = Phaser.Math.Linear(pts[0].x, tx, i / segs);
+      pts.push({ x: lx + (Math.random() - 0.5) * 70, y });
+    }
+    const g = this.add.graphics().setDepth(62);
+    const stroke = (color, w, alpha) => {
+      g.lineStyle(w, color, alpha);
+      g.beginPath();
+      g.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
+      g.strokePath();
+    };
+    stroke(0x88ddff, 10, 0.5);
+    stroke(0xffffff, 5, 1);
+    stroke(0x66ccff, 2, 1);
+    this.#screenFlash(0x224488, 0.14, 140);
+    this.tweens.add({ targets: g, alpha: { from: 1, to: 0 }, duration: 280, onComplete: () => g.destroy() });
+  }
+
   // Coins raining from the top — for the big-money tiers.
   #coinRain(count = 30) {
     if (!this.textures.exists('confetti')) return;
@@ -320,12 +345,10 @@ export class MatchScene extends Phaser.Scene {
     const coins = (gift?.coins || 0) * (gift?.repeatCount || 1);
     switch (effect) {
       case 'cannonShot': {
-        const cannon = this.cannons[senderTeam];
-        cannon.fire(this.spawner);
+        // The cannon plays its own charge + fiery blast; we just add the boom + shake.
+        this.cannons[senderTeam].fire(this.spawner);
         sfx.cannon();
-        this.cameras.main.shake(150, 0.004);
-        this.#shockwave(cannon.pos.x, cannon.pos.y - 20, 0xffce00, 140);
-        this.#sparkBurst(cannon.pos.x, cannon.pos.y - 20, [0xffce00, 0xffffff], 14);
+        this.cameras.main.shake(180, 0.005);
         this.#announceGift(name, def.label, '#ffce00', tier, coins);
         break;
       }
@@ -363,13 +386,17 @@ export class MatchScene extends Phaser.Scene {
       case 'chaosDrop': {
         this.spawner.spawnDrop(def.count || 10, opponent === 1 ? 'left' : 'right');
         sfx.cannon(); sfx.goal();
-        // Big, repeated flashes + heavy shake + coin rain = clearly the top tier.
+        // Big, repeated flashes + heavy shake + lightning + coin rain = top tier.
         this.cameras.main.shake(900, 0.02);
         this.#screenFlash(0xffffff, 0.6, 120);
         this.time.delayedCall(140, () => this.#screenFlash(0xff0066, 0.5, 300));
-        for (let i = 0; i < 4; i++) {
-          this.time.delayedCall(i * 120, () =>
-            this.#shockwave(GAME_WIDTH * (0.2 + Math.random() * 0.6), 200 + Math.random() * 300, 0xff0066, 320));
+        const half = opponent === 1 ? [GAME_WIDTH * 0.1, GAME_WIDTH * 0.45] : [GAME_WIDTH * 0.55, GAME_WIDTH * 0.9];
+        for (let i = 0; i < 5; i++) {
+          this.time.delayedCall(i * 90, () => {
+            const lx = Phaser.Math.Between(half[0], half[1]);
+            this.#lightning(lx, 300 + Math.random() * 320);
+            this.#shockwave(lx, 250 + Math.random() * 250, 0xff0066, 300);
+          });
         }
         this.#sparkBurst(GAME_WIDTH / 2, GAME_HEIGHT / 2, [0xff0066, 0xffce00, 0xffffff], 60);
         this.#coinRain(40);
@@ -417,6 +444,23 @@ export class MatchScene extends Phaser.Scene {
     });
   }
 
+  // Ball hitting a static surface (floor, hill, wall): squash + throttled thud.
+  #handleBounce(a, b) {
+    let ball = null, other = null;
+    if (a.label === 'ball') { ball = a.gameObject?.ballRef; other = b; }
+    else if (b.label === 'ball') { ball = b.gameObject?.ballRef; other = a; }
+    if (!ball || ball.destroyed || !other.isStatic) return;
+    if (other.label === 'goal-left' || other.label === 'goal-right') return;
+    const speed = Math.hypot(ball.vx, ball.vy);
+    if (speed < 3) return;
+    ball.squash();
+    const now = this.time.now;
+    if (now - (this._lastThud || 0) > 55) {
+      this._lastThud = now;
+      sfx.thud(Phaser.Math.Clamp(speed / 14, 0.1, 1));
+    }
+  }
+
   #handleCollision(a, b) {
     if (a.label !== 'goal-left' && a.label !== 'goal-right') return;
     if (b.label !== 'ball') return;
@@ -426,10 +470,15 @@ export class MatchScene extends Phaser.Scene {
     const scoringTeam = a.label === 'goal-left' ? 2 : 1;
     socket.emit('goal:detected', { team: scoringTeam });
     this.spawner.respawnAtHill(ball);
-    this.#flashAnnouncement('GOAL!', scoringTeam === 1 ? '#ffce00' : '#00d4ff');
+    const teamColor = scoringTeam === 1 ? 0xffce00 : 0x00d4ff;
+    this.#flashAnnouncement('⚽ GOAL! ⚽', scoringTeam === 1 ? '#ffce00' : '#00d4ff');
     sfx.goal();
-    this.#screenFlash(0xffffff, 0.5, 300);
+    this.#screenFlash(0xffffff, 0.55, 320);
+    this.cameras.main.shake(260, 0.007);
     const goalX = a.label === 'goal-left' ? PITCH.left + 40 : PITCH.right - 40;
-    this.fx?.confettiBurst(goalX, GOAL_Y, 80);
+    this.fx?.confettiBurst(goalX, GOAL_Y, 120);
+    this.#shockwave(goalX, GOAL_Y, teamColor, 340);
+    this.time.delayedCall(110, () => this.#shockwave(goalX, GOAL_Y, 0xffffff, 260));
+    this.#sparkBurst(goalX, GOAL_Y, [teamColor, 0xffffff], 44);
   }
 }

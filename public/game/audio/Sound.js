@@ -75,6 +75,14 @@ class SoundManager {
     this.#tone(700, { type: 'square', attack: 0.001, decay: 0.05, peak: 0.2 });
   }
 
+  // Soft ball-bounce thud; strength 0..1 scales pitch/volume.
+  thud(strength = 0.5) {
+    if (!this.ctx) return;
+    const s = this.t;
+    const f = 120 + strength * 90;
+    this.#tone(f, { type: 'sine', attack: 0.003, decay: 0.1, peak: 0.15 + strength * 0.25, glideTo: f * 0.5, dur: 0.1, start: s });
+  }
+
   whistle() {
     if (!this.ctx) return;
     const s = this.t;
