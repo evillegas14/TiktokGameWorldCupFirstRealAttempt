@@ -19,6 +19,19 @@ export class TikTokBridge extends EventEmitter {
     };
   }
 
+  // Switch between dev (offline) and live (connect to a TikTok user) at runtime.
+  async setMode(mode, username) {
+    clearTimeout(this._reconnectTimer);
+    try { await this.connection?.disconnect?.(); } catch (e) { /* ignore */ }
+    this.connection = null;
+    this.connected = false;
+    this.username = (mode === 'live' && username)
+      ? String(username).replace(/^@+/, '').trim()
+      : null;
+    this.#emitStatus();
+    if (this.username) await this.connect();
+  }
+
   #emitStatus() {
     this.emit('status', this.status());
   }

@@ -1,6 +1,7 @@
 import { GAME_WIDTH, GAME_HEIGHT } from '../constants.js';
 import { sfx } from '../audio/Sound.js';
 import { flagKey } from '../world/Flags.js';
+import { bus } from '../socket.js';
 
 export class WinnerScene extends Phaser.Scene {
   constructor() { super('WinnerScene'); }
@@ -48,6 +49,7 @@ export class WinnerScene extends Phaser.Scene {
       delay: 500, loop: true, callback: () => this.#firework(),
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.fireTimer?.remove());
+    this.input.keyboard.on('keydown-ESC', () => bus.emit('ui:leave'));
     this.#firework();
   }
 

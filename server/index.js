@@ -219,6 +219,12 @@ io.on('connection', (socket) => {
   socket.on('player:expire', ({ uniqueId }) => {
     if (players.remove(uniqueId)) broadcast('players:count', players.counts());
   });
+  // Operator picks DEV (offline) or LIVE (connect to a TikTok user) from the menu.
+  socket.on('admin:mode', async ({ mode, username }) => {
+    console.log(`[admin] mode=${mode}${username ? ' @' + username : ''}`);
+    try { await bridge.setMode(mode, username); }
+    catch (e) { console.error('[admin] setMode failed:', e.message); }
+  });
   socket.on('disconnect', () => {
     if (authoritativeSocket === socket) authoritativeSocket = null;
   });

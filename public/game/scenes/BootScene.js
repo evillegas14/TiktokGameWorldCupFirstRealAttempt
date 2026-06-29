@@ -8,6 +8,6 @@ export class BootScene extends Phaser.Scene {
   create() {
     const teams = this.cache.json.get('teams');
     this.registry.set('teams', teams);
-    this.scene.start('VoteScene');
+    this.scene.start('MenuScene');
   }
 }

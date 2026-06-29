@@ -67,6 +67,7 @@ export class MatchScene extends Phaser.Scene {
       const muted = sfx.toggleMute();
       this.muteBadge.setText(muted ? '🔇 Muted (M)' : '🔊 Sound (M)');
     });
+    this.input.keyboard.on('keydown-ESC', () => bus.emit('ui:leave'));
 
     this.matter.world.on('collisionstart', (event) => {
       for (const pair of event.pairs) {

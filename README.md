@@ -1,77 +1,138 @@
-# TikTok Live World Cup Game
+# TikTok Live World Cup Game ⚽
 
 An interactive **TikTok Live** game, World Cup themed, that reacts in real time to your
 viewers' **comments, gifts, and likes**. Two national teams (voted in by chat) play on a
 2D bowl-shaped pitch with a triangular hill in the middle. Always-spinning balls bounce
 around, viewers join a side and their avatars chase the ball, and gifts trigger escalating
-effects. You run it locally in a browser and capture it with OBS to stream back to TikTok.
+power-ups. You run it locally in a browser and capture it with OBS to stream back to TikTok.
 
-## How it plays
+---
 
-- **Vote phase (60s):** chat types `!vote <CODE>` (e.g. `!vote BRA`). The two most-voted
-  nations play the next match. Vote tally resets each round.
-- **Match:** first team to **5 goals** wins (configurable). Two balls are always in play,
-  spinning in opposite directions; they drop from the hopper onto the hill and roll down
-  the bowl. Goalies bounce in front of each net.
-- **Join a team:** chat types `!join 1` (left) or `!join 2` (right). Your TikTok avatar
-  spawns on that side and runs at the nearest ball, kicking it toward the opponent's goal.
-- **Likes:** every **200 likes** drops in another pair of opposite-spinning balls.
-- **Gifts** (tiers configurable in `server/gifts.json`):
-  | Tier | Coins | Effect |
-  |------|-------|--------|
-  | T1 | 1–9 (Rose) | Cannon shot from your team's side |
-  | T2 | 10–49 | 5-ball drop on the opponent's half |
-  | T3 | 50–99 | Goalie buff for your team (bigger, 30s) |
-  | T4 | 100–499 | Super-ball that homes toward the opponent goal |
-  | T5 | 500+ | Chaos: 10-ball drop + screen shake |
-- Each ball has a **4-minute health timer**; scoring does **not** reset it. When it expires
-  the ball despawns (there are always at least two).
-- A **Top Supporters** leaderboard tracks coins gifted during the match.
+## 🚀 Quick start
 
-## Run it locally
+**Prerequisites:** [Node.js](https://nodejs.org) **18 or newer** (`node -v` to check) and a
+modern browser (Chrome/Edge recommended). No build step.
 
 ```bash
+# 1. Install dependencies (also downloads Phaser locally — no CDN needed)
 npm install
+
+# 2. Start the game server
 npm run dev
 ```
 
-Open **http://localhost:3000** for the game and **http://localhost:3000/dev** for the dev
-panel (inject fake chat/gift/like events to test without going live).
+Then open:
 
-### Connect to your TikTok LIVE
+- **http://localhost:3000** — the game (this is what you capture in OBS)
+- **http://localhost:3000/dev** — the operator/dev panel (fake chat, gifts, likes, goals)
 
-1. Copy `.env.example` to `.env` and set your handle (without the `@`):
+On first launch you land on the **start menu** with two choices:
+
+- **🔴 GO LIVE** — type your TikTok `@username` and click to connect to your live and play
+  with real viewers. (You must already be live on TikTok.)
+- **🧪 DEV MODE** — start offline and drive everything yourself from the **/dev** panel —
+  great for testing without going live.
+
+Press **ESC** any time during play to return to this menu (the connection stays running).
+
+> You can also preset the username via `.env` (see below); the menu's GO LIVE button just
+> sets/changes it at runtime, so you don't have to edit files to switch accounts.
+
+> Click the game window once (or press any key) to enable sound — browsers block audio until
+> you interact. Press **M** to mute.
+
+---
+
+## 🧪 Try it without going live
+
+Open the dev panel at **http://localhost:3000/dev** alongside the game and:
+
+1. Click **+5 votes BRA** and **+5 votes ARG**, then wait for the countdown — the match
+   starts with the two leading teams.
+2. Click **+4 joins team 1 / team 2** to spawn player avatars.
+3. Fire each **gift tier (T1–T5)** and watch the cannon shot, multi-ball drop, goalie buff,
+   super-ball, and chaos drop.
+4. Click **+200 likes** to drop in an extra pair of balls.
+5. Click **Score for Team 1** a few times to end the match → winner screen → back to voting.
+
+---
+
+## 📺 Go live (capture in OBS + connect to TikTok)
+
+1. **Connect your TikTok handle.** Copy the example env file and set your username
+   (no `@`):
+   ```bash
+   cp .env.example .env
+   ```
    ```
    TIKTOK_USERNAME=yourhandle
    ```
-2. **Start your TikTok LIVE first**, then run `npm run dev`. The badge in the
-   bottom-left of the game shows the connection state: `DEV MODE`, `… connecting`,
-   or `🔴 LIVE @yourhandle`. It auto-reconnects if the stream drops.
+2. **Start your TikTok LIVE first**, then run `npm run dev`. The badge in the bottom-left of
+   the game shows the connection state: `DEV MODE`, `… connecting`, or `🔴 LIVE @yourhandle`
+   (it auto-reconnects if the stream drops).
+3. **Capture it in OBS:** add a **Window Capture** of the browser (or a **Browser Source**
+   pointing at `http://localhost:3000`). The canvas is 1920×1080 and scales to fit. For
+   sound, let OBS capture the browser audio, or mute in-game with **M** and use your own.
+4. Go live on TikTok as usual. Real chat / gifts / likes now drive the game.
 
-> The game only **reads** public live events (chat, gifts, likes) via
-> [`tiktok-live-connector`](https://github.com/zerodytrash/TikTok-Live-Connector). You must
-> be live for events to arrive.
+> The game only **reads** public live events via
+> [`tiktok-live-connector`](https://github.com/zerodytrash/TikTok-Live-Connector); you must
+> actually be live for events to arrive. It never posts or logs in as you.
 
-### Capture in OBS
+---
 
-1. Add a **Window Capture** (or **Browser Source** pointing at `http://localhost:3000`).
-2. Size the canvas to 1920×1080; it scales to fit.
-3. Stream to TikTok as usual. For sound, either let OBS capture the browser audio or mute
-   in-game with **M** and use your own music.
+## 🎮 How it plays
 
-## Configuration
+- **Vote (60s):** chat types `!vote <CODE>` (e.g. `!vote BRA`). The two most-voted nations
+  play next; the leading two are highlighted live. Tally resets each round.
+- **Match:** sudden death — first team to **5 goals** wins (configurable). Two balls are
+  always in play, spinning opposite ways; they drop from the hopper onto the hill and roll
+  down the bowl. Keepers patrol each net.
+- **Join a team:** chat types `!join 1` (left) or `!join 2` (right). Your TikTok avatar
+  (profile pic) spawns and chases the nearest ball, kicking it toward the opponent's goal.
+  Each player has a **5-minute life**; sending a gift refills it to 10 minutes.
+- **Likes:** every **200 likes** drops in another opposite-spinning pair of balls.
+- **Gifts** (coin ranges + named gifts, editable in `server/gifts.json`):
+
+  | Tier | Coins | Effect |
+  |------|-------|--------|
+  | T1 | 1–9 (e.g. Rose) | Cannon shot from your team's hill toward the opponent goal |
+  | T2 | 10–49 | 5-ball drop on the opponent's half |
+  | T3 | 50–99 | Goalie buff for your team (bigger, glowing, 30s) |
+  | T4 | 100–499 | Super-ball — a flaming comet aimed at the opponent goal |
+  | T5 | 500+ | Chaos: 10-ball drop + lightning + screen shake |
+
+- Each ball has a **4-minute health timer** (scoring does **not** reset it); there are
+  always at least two. A **Top Supporters** leaderboard tracks coins gifted each match.
+
+---
+
+## ⚙️ Configuration
 
 - `server/config.json` — `goalsToWin`, `voteSeconds`, `winnerDisplaySeconds`,
   `ballsPerLikeMilestone`, `ballHealthMs`, `maxBalls`, `clearPlayersBetweenMatches`.
-- `server/gifts.json` — map gift names / coin ranges to effect tiers.
-- `public/game/data/teams.json` — the 32 nations (code, colors).
-- Env overrides for quick testing: `VOTE_SECONDS`, `WINNER_DISPLAY_SECONDS`, `GOALS_TO_WIN`.
+- `server/gifts.json` — map gift coin-ranges and specific gift names to effect tiers.
+- `public/game/data/teams.json` — the 32 nations (code, ISO flag code, colors).
+- **Quick-test env overrides:** speed up cycles with
+  `VOTE_SECONDS=8 WINNER_DISPLAY_SECONDS=3 GOALS_TO_WIN=2 npm run dev`.
+- `PORT` — change the server port (default `3000`).
 
-## Controls
+## ⌨️ Controls
 
 - **M** — toggle game sound on/off.
 
-## Tech
+## 🧰 Troubleshooting
 
-Node + Express + Socket.io on the backend; Phaser 3 + Matter.js (2D physics) in the
-browser. Sound is synthesized at runtime with the Web Audio API (no asset files).
+- **Badge stuck on `… connecting`** — make sure you're actually live on TikTok and
+  `TIKTOK_USERNAME` is your handle without the `@`.
+- **No sound** — click the game window once or press a key (browser autoplay policy); check
+  it's not muted (**M**).
+- **Flags show as colored blocks** — the real national flags load from a CDN
+  (`flagcdn.com`); if your network blocks it, the team-colored fallback is used.
+- **Port already in use** — run with a different port: `PORT=3001 npm run dev`.
+
+## 🏗️ Tech
+
+Node + Express + Socket.io backend; Phaser 3 + Matter.js (2D physics) in the browser.
+Sound is synthesized at runtime with the Web Audio API and the stadium/balls are drawn
+procedurally — **no image or audio asset files required**.

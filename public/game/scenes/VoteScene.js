@@ -81,6 +81,7 @@ export class VoteScene extends Phaser.Scene {
         this.leaderText.setText('');
       }
     };
+    this.input.keyboard.on('keydown-ESC', () => bus.emit('ui:leave'));
     bus.on('vote:start', this.handleVoteStart);
     bus.on('vote:tally', this.handleTally);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
