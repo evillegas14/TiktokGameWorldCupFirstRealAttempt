@@ -1,7 +1,7 @@
 // Team flags. Tries to load real national flags (flagcdn, by ISO code) and
 // gracefully falls back to a team-colored flag if the image can't be fetched
 // (e.g. offline). Shared by the VoteScene tiles and the in-match decorations.
-import { PITCH } from './Field.js';
+import { PITCH, floorYAt } from './Field.js';
 import { GAME_WIDTH } from '../constants.js';
 
 export function flagKey(iso) { return 'flag:' + iso; }
@@ -57,12 +57,12 @@ export function makeFlag(scene, x, y, team, { scale = 1, poleH = 90, clothW = 90
 // Build the in-match flag decorations for both playing teams.
 export function buildMatchFlags(scene, teamA, teamB) {
   const apply = () => {
-    // Big stand flags high up on each side.
+    // Big stand flags high up on each side (clear of the HUD + leaderboard).
     makeFlag(scene, GAME_WIDTH * 0.30, 250, teamA, { scale: 1.6, clothW: 120, clothH: 80, poleH: 120 });
     makeFlag(scene, GAME_WIDTH * 0.70, 250, teamB, { scale: 1.6, clothW: 120, clothH: 80, poleH: 120 });
-    // Corner flags near the top of each side of the pitch.
-    makeFlag(scene, PITCH.left + 70, PITCH.top + 150, teamA, { scale: 0.9 });
-    makeFlag(scene, PITCH.right - 70, PITCH.top + 150, teamB, { scale: 0.9 });
+    // Corner flags grounded low on each side, well below the leaderboard.
+    makeFlag(scene, 230, floorYAt(230), teamA, { scale: 0.9 });
+    makeFlag(scene, GAME_WIDTH - 230, floorYAt(GAME_WIDTH - 230), teamB, { scale: 0.9 });
   };
   loadFlags(scene, [teamA.iso, teamB.iso], apply);
 }
