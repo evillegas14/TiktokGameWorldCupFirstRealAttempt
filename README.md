@@ -59,21 +59,16 @@ Open the dev panel at **http://localhost:3000/dev** alongside the game and:
 
 ## 📺 Go live (capture in OBS + connect to TikTok)
 
-1. **Connect your TikTok handle.** Copy the example env file and set your username
-   (no `@`):
-   ```bash
-   cp .env.example .env
-   ```
-   ```
-   TIKTOK_USERNAME=yourhandle
-   ```
-2. **Start your TikTok LIVE first**, then run `npm run dev`. The badge in the bottom-left of
-   the game shows the connection state: `DEV MODE`, `… connecting`, or `🔴 LIVE @yourhandle`
-   (it auto-reconnects if the stream drops).
+1. **Go live on TikTok first** — the game can only read events while you're actually live.
+2. **Connect from the menu:** on the start menu, type your TikTok `@username` and click
+   **🔴 GO LIVE**. You'll see **Connecting… → ✓ Connected** (or an error so you can fix the
+   handle). The bottom-left badge then shows `🔴 LIVE @you` and auto-reconnects if the stream
+   drops. *(Optional: preset it in `.env` as `TIKTOK_USERNAME=yourhandle` — `cp .env.example
+   .env` — to skip typing it each time.)*
 3. **Capture it in OBS:** add a **Window Capture** of the browser (or a **Browser Source**
    pointing at `http://localhost:3000`). The canvas is 1920×1080 and scales to fit. For
    sound, let OBS capture the browser audio, or mute in-game with **M** and use your own.
-4. Go live on TikTok as usual. Real chat / gifts / likes now drive the game.
+4. Real chat / gifts / likes now drive the game.
 
 > The game only **reads** public live events via
 > [`tiktok-live-connector`](https://github.com/zerodytrash/TikTok-Live-Connector); you must
@@ -120,11 +115,13 @@ Open the dev panel at **http://localhost:3000/dev** alongside the game and:
 ## ⌨️ Controls
 
 - **M** — toggle game sound on/off.
+- **ESC** — return to the start menu (the TikTok connection keeps running).
 
 ## 🧰 Troubleshooting
 
-- **Badge stuck on `… connecting`** — make sure you're actually live on TikTok and
-  `TIKTOK_USERNAME` is your handle without the `@`.
+- **"Couldn't connect" / badge stuck on `… connecting`** — make sure you're actually LIVE on
+  TikTok and entered your handle without the `@`. The menu shows the result and re-enables
+  **GO LIVE** so you can retry.
 - **No sound** — click the game window once or press a key (browser autoplay policy); check
   it's not muted (**M**).
 - **Flags show as colored blocks** — the real national flags load from a CDN
