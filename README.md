@@ -111,6 +111,9 @@ Open the dev panel at **http://localhost:3000/dev** alongside the game and:
 - **Quick-test env overrides:** speed up cycles with
   `VOTE_SECONDS=8 WINNER_DISPLAY_SECONDS=3 GOALS_TO_WIN=2 npm run dev`.
 - `PORT` — change the server port (default `3000`).
+- `SIGN_API_KEY` — optional [Euler Stream](https://www.eulerstream.com) sign-server key.
+  The live connection works on the free (rate-limited) tier without it; set it only if you
+  hit rate limits.
 
 ## ⌨️ Controls
 
@@ -121,7 +124,9 @@ Open the dev panel at **http://localhost:3000/dev** alongside the game and:
 
 - **"Couldn't connect" / badge stuck on `… connecting`** — make sure you're actually LIVE on
   TikTok and entered your handle without the `@`. The menu shows the result and re-enables
-  **GO LIVE** so you can retry.
+  **GO LIVE** so you can retry. The connection is signed via a free, rate-limited sign server;
+  if you reconnect a lot and start getting rate-limited, set a `SIGN_API_KEY` (see
+  Configuration).
 - **No sound** — click the game window once or press a key (browser autoplay policy); check
   it's not muted (**M**).
 - **Flags show as colored blocks** — the real national flags load from a CDN
@@ -131,5 +136,6 @@ Open the dev panel at **http://localhost:3000/dev** alongside the game and:
 ## 🏗️ Tech
 
 Node + Express + Socket.io backend; Phaser 3 + Matter.js (2D physics) in the browser.
-Sound is synthesized at runtime with the Web Audio API and the stadium/balls are drawn
-procedurally — **no image or audio asset files required**.
+Live events come from [`tiktok-live-connector`](https://github.com/zerodytrash/TikTok-Live-Connector)
+**v2** (read-only). Sound is synthesized at runtime with the Web Audio API and the
+stadium/balls are drawn procedurally — **no image or audio asset files required**.
