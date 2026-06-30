@@ -4,6 +4,17 @@ export const BALL_RADIUS = 22;
 export const SUPER_RADIUS = 32;
 export const DEFAULT_HEALTH_MS = 240_000;
 
+// Gift-spawned balls get a distinct texture + colored glow (and a trail for the
+// flashier ones) so viewers can instantly tell an ability is in play.
+//   super  → big flaming red comet (top-tier gift)
+//   cannon → glowing iron cannonball (cannon-shot gift)
+//   drop   → cyan energy orb (multi-ball / chaos drop gifts)
+const SPECIAL_FX = {
+  super:  { glow: 0xff5522, glowScale: 0.95, depth: 20, trail: [0xffee00, 0xff8800, 0xff2200, 0xffffff] },
+  cannon: { glow: 0xffaa00, glowScale: 0.7,  depth: 16, trail: [0xffffaa, 0xffaa00, 0xff5500] },
+  drop:   { glow: 0x33ddff, glowScale: 0.62, depth: 14, trail: null },
+};
+
 export class Ball {
   constructor(scene, x, y, opts = {}) {
     this.scene = scene;
@@ -27,35 +38,51 @@ export class Ball {
       density: 0.0015,
       label: 'ball',
     });
-    this.image.setCircle(radius);
+    // NOTE: do NOT call setCircle() here — the `shape` option above already makes
+    // a circle body with our label/restitution/friction. setCircle() would build
+    // a *fresh* body and silently drop the 'ball' label (breaking goal detection)
+    // and our material settings (killing the bounce).
     this.image.ballRef = this;
-    this.image.setDepth(this.kind === 'super' ? 20 : 2); // above its ground shadow (depth 1)
+    const fx = SPECIAL_FX[this.kind];
+    this.image.setDepth(fx ? fx.depth : 2); // above its ground shadow (depth 1)
 
     if (opts.angularVelocity != null) this.image.setAngularVelocity(opts.angularVelocity);
     if (opts.velocity) this.image.setVelocity(opts.velocity.x, opts.velocity.y);
 
-    if (this.kind === 'super') {
-      // Flaming comet: glow that follows + a fire particle trail.
+    if (fx) {
+      // Pulsing colored glow that follows the ball.
       if (scene.textures.exists('fx-glow')) {
-        this.glow = scene.add.image(x, y, 'fx-glow').setDepth(19).setScale(0.9).setTint(0xff6600).setAlpha(0.8);
+        this.glow = scene.add.image(x, y, 'fx-glow')
+          .setDepth(fx.depth - 1).setScale(fx.glowScale).setTint(fx.glow).setAlpha(0.8);
+        scene.tweens.add({
+          targets: this.glow, alpha: { from: 0.5, to: 0.9 },
+          scale: { from: fx.glowScale * 0.85, to: fx.glowScale },
+          duration: 400, yoyo: true, repeat: -1,
+        });
       }
-      if (scene.textures.exists('fx-dot')) {
+      // Particle trail for the flashier kinds (skipped for bulk drops to keep
+      // the emitter count — and the screen — under control).
+      if (fx.trail && scene.textures.exists('fx-dot')) {
+        const big = this.kind === 'super';
         this.trail = scene.add.particles(0, 0, 'fx-dot', {
           follow: this.image,
           speed: { min: 0, max: 40 },
-          lifespan: 420,
-          scale: { start: 3.6, end: 0 },
+          lifespan: big ? 420 : 300,
+          scale: { start: big ? 3.6 : 2.4, end: 0 },
           alpha: { start: 0.9, end: 0 },
-          tint: [0xffee00, 0xff8800, 0xff2200, 0xffffff],
-          frequency: 12,
+          tint: fx.trail,
+          frequency: big ? 12 : 22,
         });
-        this.trail.setDepth(18);
+        this.trail.setDepth(fx.depth - 2);
       }
     }
   }
 
   #textureKey() {
-    return this.kind === 'super' ? 'ball-super' : 'ball';
+    if (this.kind === 'super') return 'ball-super';
+    if (this.kind === 'cannon') return 'ball-cannon';
+    if (this.kind === 'drop') return 'ball-drop';
+    return 'ball';
   }
 
   // Quick squash-and-stretch when the ball thuds into something.
@@ -138,6 +165,91 @@ export class Ball {
 export function createBallTextures(scene) {
   makeSoccerBall(scene, 'ball', BALL_RADIUS, false);
   makeSoccerBall(scene, 'ball-super', SUPER_RADIUS, true);
+  makeCannonball(scene, 'ball-cannon', BALL_RADIUS);
+  makeEnergyBall(scene, 'ball-drop', BALL_RADIUS);
+}
+
+// Glowing iron cannonball — used for cannon-shot gifts.
+function makeCannonball(scene, key, r) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const size = r * 2;
+  let ct;
+  try { ct = scene.textures.createCanvas(key, size, size); } catch (e) { ct = null; }
+  if (!ct) { fallbackBall(scene, key, r, true); return; }
+  const ctx = ct.getContext();
+
+  // Iron sphere, lit from upper-left.
+  const grad = ctx.createRadialGradient(r * 0.6, r * 0.52, r * 0.1, r, r, r);
+  grad.addColorStop(0, '#9aa3b2');
+  grad.addColorStop(0.5, '#3a3f4a');
+  grad.addColorStop(1, '#13161c');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(r, r, r - 1, 0, Math.PI * 2); ctx.fill();
+
+  // Hot ember glow bleeding out (looks red-hot from the cannon).
+  const ember = ctx.createRadialGradient(r, r * 1.05, 0, r, r, r);
+  ember.addColorStop(0, 'rgba(255,150,30,0.5)');
+  ember.addColorStop(0.55, 'rgba(255,80,0,0.14)');
+  ember.addColorStop(1, 'rgba(255,80,0,0)');
+  ctx.fillStyle = ember;
+  ctx.beginPath(); ctx.arc(r, r, r - 1, 0, Math.PI * 2); ctx.fill();
+
+  // Rivets around the shell.
+  ctx.fillStyle = 'rgba(15,17,22,0.9)';
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    ctx.beginPath(); ctx.arc(r + Math.cos(a) * r * 0.6, r + Math.sin(a) * r * 0.6, r * 0.07, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Specular highlight + rim.
+  const hi = ctx.createRadialGradient(r * 0.62, r * 0.48, 0, r * 0.62, r * 0.48, r * 0.55);
+  hi.addColorStop(0, 'rgba(255,255,255,0.65)');
+  hi.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hi;
+  ctx.beginPath(); ctx.arc(r, r, r - 1, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(r, r, r - 1, 0, Math.PI * 2); ctx.stroke();
+
+  ct.refresh();
+}
+
+// Cyan energy orb — used for multi-ball / chaos drop gifts.
+function makeEnergyBall(scene, key, r) {
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  const size = r * 2;
+  let ct;
+  try { ct = scene.textures.createCanvas(key, size, size); } catch (e) { ct = null; }
+  if (!ct) { fallbackBall(scene, key, r, false); return; }
+  const ctx = ct.getContext();
+
+  // Glowing cyan sphere.
+  const grad = ctx.createRadialGradient(r * 0.6, r * 0.52, r * 0.1, r, r, r);
+  grad.addColorStop(0, '#e6fbff');
+  grad.addColorStop(0.45, '#3fd2ff');
+  grad.addColorStop(1, '#0a6fb0');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(r, r, r - 1, 0, Math.PI * 2); ctx.fill();
+
+  // Bright energy panels (soccer-ball pentagons, glowing white).
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  drawPentagon(ctx, r, r, r * 0.32, -Math.PI / 2);
+  for (let i = 0; i < 5; i++) {
+    const a = -Math.PI / 2 + (i / 5) * Math.PI * 2;
+    drawPentagon(ctx, r + Math.cos(a) * r * 0.64, r + Math.sin(a) * r * 0.64, r * 0.17, a + Math.PI);
+  }
+
+  // Core bloom + rim glow.
+  const hi = ctx.createRadialGradient(r * 0.6, r * 0.5, 0, r * 0.6, r * 0.5, r * 0.7);
+  hi.addColorStop(0, 'rgba(255,255,255,0.7)');
+  hi.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hi;
+  ctx.beginPath(); ctx.arc(r, r, r - 1, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(180,245,255,0.9)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(r, r, r - 1.5, 0, Math.PI * 2); ctx.stroke();
+
+  ct.refresh();
 }
 
 function makeSoccerBall(scene, key, r, fiery) {

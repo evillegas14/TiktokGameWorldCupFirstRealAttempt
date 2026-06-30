@@ -53,6 +53,7 @@ export class BallSpawner {
       const x = half + (Math.random() - 0.5) * 600;
       const y = 200 + Math.random() * 100;
       const ball = new Ball(this.scene, x, y, {
+        kind: 'drop',
         angularVelocity: (i % 2 === 0 ? 1 : -1) * (0.3 + Math.random() * 0.4),
         velocity: { x: (Math.random() - 0.5) * 4, y: 1 + Math.random() },
       });
@@ -85,6 +86,7 @@ export class BallSpawner {
     const speed = 17; // enough to lob over the hill toward the far goal
     const jitter = (Math.random() - 0.5) * 0.15;
     const ball = new Ball(this.scene, fromX, fromY, {
+      kind: 'cannon',
       angularVelocity: jitter * 10,
       velocity: { x: (dx / len) * speed, y: (dy / len) * speed + jitter },
       health: 60_000,
