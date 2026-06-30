@@ -21,9 +21,9 @@ export class Ball {
     const texKey = this.#textureKey();
     this.image = scene.matter.add.image(x, y, texKey, undefined, {
       shape: { type: 'circle', radius },
-      restitution: 0.85,
+      restitution: 0.95,   // bouncy — Matter uses the max restitution of the pair
       friction: 0.02,
-      frictionAir: 0.005,
+      frictionAir: 0.004,
       density: 0.0015,
       label: 'ball',
     });
@@ -72,6 +72,21 @@ export class Ball {
     // Keep spin alive — Matter friction dampens it otherwise.
     const av = this.image.body.angularVelocity;
     if (Math.abs(av) < 0.05) this.image.setAngularVelocity(av >= 0 ? 0.1 : -0.1);
+
+    // Keep-alive: if a ball goes nearly idle (e.g. nobody is playing), give it a
+    // lively random kick so the match keeps moving on its own.
+    const speed = Math.hypot(this.image.body.velocity.x, this.image.body.velocity.y);
+    if (speed < 1.3) {
+      this.idleMs = (this.idleMs || 0) + delta;
+      if (this.idleMs > 1100) {
+        this.idleMs = 0;
+        const dir = this.image.x < 960 ? 1 : -1; // nudge toward the far side
+        this.image.setVelocity((4 + Math.random() * 4) * dir, -(5 + Math.random() * 4));
+        this.image.setAngularVelocity((Math.random() - 0.5) * 0.8);
+      }
+    } else {
+      this.idleMs = 0;
+    }
 
     // Contact shadow: smaller/fainter the higher the ball is above the floor.
     const floorY = floorYAt(this.image.x);

@@ -11,6 +11,9 @@ const config = {
   type: Phaser.AUTO,
   parent: 'game',
   backgroundColor: '#0c5e1a',
+  // Needed so cross-origin images (national flags, TikTok profile pics) can be
+  // uploaded as WebGL textures instead of failing as "tainted".
+  loader: { crossOrigin: 'anonymous' },
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
