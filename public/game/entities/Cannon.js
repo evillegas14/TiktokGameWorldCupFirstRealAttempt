@@ -1,4 +1,4 @@
-// Artillery cannon mounted on the hill. The barrel + wheel are drawn to canvas
+// Artillery cannon mounted on the volcano. The barrel + wheel are drawn to canvas
 // textures (metallic cylinder sheen, rivets, reinforcing bands, spoked wheel)
 // for a photo-like look, and firing kicks off a layered muzzle blast.
 export class Cannon {
@@ -13,7 +13,7 @@ export class Cannon {
     // so the barrel visibly aims at the far net rather than lying flat.
     const elevation = Phaser.Math.DegToRad(34);
     this.angle = team === 1 ? -elevation : Math.PI + elevation; // team1 fires right, team2 fires left
-    // Aim point far along the barrel line; the shot arcs over the hill to the far half.
+    // Aim point far along the barrel line; the shot arcs over the volcano to the far half.
     this.aim = {
       x: pos.x + Math.cos(this.angle) * 1600,
       y: pos.y + Math.sin(this.angle) * 1600,

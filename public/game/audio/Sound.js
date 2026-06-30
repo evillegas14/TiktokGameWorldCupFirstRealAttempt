@@ -109,6 +109,26 @@ class SoundManager {
     src.start(s); src.stop(s + 0.32);
   }
 
+  // Deep volcano rumble — a long sub-bass swell + filtered noise roar.
+  rumble(durSec = 0.9) {
+    if (!this.ctx) return;
+    const s = this.t;
+    // Sub-bass that sags downward.
+    this.#tone(48, { type: 'sine', attack: 0.04, decay: durSec, peak: 0.9, glideTo: 24, dur: durSec, start: s });
+    // Noise roar through a falling lowpass for the "boom" body.
+    const src = this.#noise(durSec);
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(900, s);
+    lp.frequency.exponentialRampToValueAtTime(80, s + durSec);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, s);
+    g.gain.exponentialRampToValueAtTime(0.85, s + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, s + durSec);
+    src.connect(lp); lp.connect(g); g.connect(this.master);
+    src.start(s); src.stop(s + durSec + 0.05);
+  }
+
   cheer(durSec = 1.2) {
     if (!this.ctx) return;
     const s = this.t;

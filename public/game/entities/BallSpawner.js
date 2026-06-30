@@ -83,7 +83,7 @@ export class BallSpawner {
     const dx = targetX - fromX;
     const dy = targetY - fromY;
     const len = Math.hypot(dx, dy) || 1;
-    const speed = 17; // enough to lob over the hill toward the far goal
+    const speed = 17; // enough to lob over the volcano toward the far goal
     const jitter = (Math.random() - 0.5) * 0.15;
     const ball = new Ball(this.scene, fromX, fromY, {
       kind: 'cannon',

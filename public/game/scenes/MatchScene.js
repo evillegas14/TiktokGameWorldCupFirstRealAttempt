@@ -1,7 +1,7 @@
 import { bus, socket } from '../socket.js';
 import { GAME_WIDTH, GAME_HEIGHT } from '../constants.js';
 import { buildField, PITCH, GOAL_Y } from '../world/Field.js';
-import { buildHill } from '../world/Hill.js';
+import { buildVolcano } from '../world/Volcano.js';
 import { createBackground, createBackgroundFX } from '../world/Background.js';
 import { buildMatchFlags } from '../world/Flags.js';
 import { Ball, createBallTextures } from '../entities/Ball.js';
@@ -10,6 +10,19 @@ import { Player } from '../entities/Player.js';
 import { Goalie } from '../entities/Goalie.js';
 import { Cannon } from '../entities/Cannon.js';
 import { sfx } from '../audio/Sound.js';
+
+// The volcano erupts on this cadence (and instantly on a T5 gift).
+const ERUPT_INTERVAL_MS = 18000;
+
+// Compact reference shown top-right so viewers know what each gift does.
+// Keep in sync with server/gifts.json (coin ranges + effects).
+const GIFT_LEGEND = [
+  { t: 'T1', coins: '1–9',     label: 'Cannon shot', color: '#ffce00' },
+  { t: 'T2', coins: '10–49',   label: '5-ball drop', color: '#ff8800' },
+  { t: 'T3', coins: '50–99',   label: 'Goalie buff', color: '#00d4ff' },
+  { t: 'T4', coins: '100–499', label: 'Super ball',  color: '#ff5aa0' },
+  { t: 'T5', coins: '500+',    label: 'Chaos+erupt', color: '#ff3b3b' },
+];
 
 export class MatchScene extends Phaser.Scene {
   constructor() { super('MatchScene'); }
@@ -32,12 +45,12 @@ export class MatchScene extends Phaser.Scene {
     this.fx = createBackgroundFX(this, this.teamA.primary, this.teamB.primary);
 
     const field = buildField(this);
-    const hill = buildHill(this);
+    const volcano = buildVolcano(this);
     this.field = field;
-    this.hill = hill;
+    this.volcano = volcano;
     buildMatchFlags(this, this.teamA, this.teamB);
 
-    this.spawner = new BallSpawner(this, { spawnPoint: hill.spawnPoint, maxBalls: 30 });
+    this.spawner = new BallSpawner(this, { spawnPoint: volcano.spawnPoint, maxBalls: 30 });
     this.spawner.spawnPair();
     this.spawner.spawnPair();
 
@@ -46,12 +59,19 @@ export class MatchScene extends Phaser.Scene {
       2: new Goalie(this, 2, this.teamB.primary),
     };
     this.cannons = {
-      1: new Cannon(this, 1, hill.leftCannon, this.teamA.primary),
-      2: new Cannon(this, 2, hill.rightCannon, this.teamB.primary),
+      1: new Cannon(this, 1, volcano.leftCannon, this.teamA.primary),
+      2: new Cannon(this, 2, volcano.rightCannon, this.teamB.primary),
     };
+
+    // Periodic volcano eruption — a built-in hype beat. The scene Clock is torn
+    // down on shutdown, so this loop doesn't leak across matches.
+    this.eruptTimer = this.time.addEvent({
+      delay: ERUPT_INTERVAL_MS, loop: true, callback: () => this.#eruptTelegraph(),
+    });
 
     this.#buildHud();
     this.#buildLeaderboard();
+    this.#buildGiftLegend();
     this.#buildStatusBadge();
     this.#buildVignette();
     this.#buildHowToPlay();
@@ -186,6 +206,28 @@ export class MatchScene extends Phaser.Scene {
       const r = rows[i];
       this.lbRows[i].setText(r ? `${medals[i]} ${r.nickname} — ${r.coins}🪙` : '');
     }
+  }
+
+  // Small, transparent gift-tier reference pinned to the top-right corner.
+  #buildGiftLegend() {
+    const right = GAME_WIDTH - 20;
+    const top = 150;
+    const rowH = 26;
+    const panelW = 252;
+    const panelH = 30 + GIFT_LEGEND.length * rowH;
+    // Faint backing so it reads over the pitch without blocking it.
+    this.add.rectangle(right, top, panelW, panelH, 0x000000, 0.28)
+      .setOrigin(1, 0).setDepth(66).setStrokeStyle(1, 0xffffff, 0.12);
+    this.add.text(right - 12, top + 8, '🎁 GIFTS', {
+      fontSize: '17px', fontFamily: 'Impact', color: '#ffce00',
+    }).setOrigin(1, 0).setDepth(67);
+    GIFT_LEGEND.forEach((row, i) => {
+      const y = top + 34 + i * rowH;
+      this.add.text(right - 12, y, `${row.t} · ${row.coins}🪙 · ${row.label}`, {
+        fontSize: '15px', fontFamily: 'Arial', color: row.color,
+        stroke: '#000', strokeThickness: 2,
+      }).setOrigin(1, 0).setDepth(67);
+    });
   }
 
   #buildStatusBadge() {
@@ -336,6 +378,79 @@ export class MatchScene extends Phaser.Scene {
     }
   }
 
+  // ~1s warning charge before the volcano blows: glow swells, ground trembles,
+  // sparks hiss out of the crater — so the eruption feels telegraphed, not random.
+  #eruptTelegraph() {
+    if (!this.volcano) return;
+    const { x: cx, y: cy } = this.volcano.crater;
+    this.cameras.main.shake(950, 0.0035);
+    this.#glowFlash(cx, cy, 0xff7a1a, 2.0, 1000);
+    let hint = null;
+    if (this.textures.exists('fx-dot')) {
+      hint = this.add.particles(cx, cy, 'fx-dot', {
+        speed: { min: 20, max: 110 }, angle: { min: 250, max: 290 },
+        lifespan: 900, scale: { start: 1.8, end: 0 }, alpha: { start: 0.85, end: 0 },
+        tint: [0xffcc44, 0xff7700], frequency: 55, gravityY: 120,
+      });
+      hint.setDepth(59);
+    }
+    this.time.delayedCall(1000, () => {
+      if (hint) hint.destroy();
+      this.#erupt();
+    });
+  }
+
+  // The eruption: hurl nearby balls skyward + a lava fountain, smoke, shake, rumble.
+  #erupt() {
+    if (!this.volcano) return;
+    const { x: cx, y: cy } = this.volcano.crater;
+    const RANGE = 360;
+
+    // Launch any ball within range of the crater — up and fanned outward, stronger
+    // the closer it is. The pitch's top wall keeps them in bounds.
+    for (const ball of this.spawner.balls) {
+      if (!ball || ball.destroyed) continue;
+      const dx = ball.x - cx;
+      const dy = ball.y - cy;
+      const dist = Math.hypot(dx, dy);
+      if (dist > RANGE) continue;
+      const prox = 1 - dist / RANGE; // 0..1
+      const sign = dx === 0 ? (Math.random() < 0.5 ? -1 : 1) : Math.sign(dx);
+      ball.image.setVelocity(sign * (3 + Math.random() * 6), -(18 + prox * 10));
+      ball.image.setAngularVelocity((Math.random() - 0.5) * 0.9);
+    }
+
+    sfx.rumble();
+    this.cameras.main.shake(520, 0.012);
+    this.#screenFlash(0xff5500, 0.18, 240);
+    this.#glowFlash(cx, cy, 0xff6a1a, 2.8, 540);
+    this.#shockwave(cx, cy, 0xff7a1a, 320);
+    this.#smokePuff(cx, cy - 12, 12, 0x6a5a4a);
+
+    if (this.textures.exists('fx-dot')) {
+      // Lava fountain — bright, fast, upward.
+      const lava = this.add.particles(cx, cy, 'fx-dot', {
+        speed: { min: 280, max: 760 }, angle: { min: 250, max: 290 },
+        lifespan: { min: 600, max: 1100 }, scale: { start: 3.2, end: 0 },
+        alpha: { start: 1, end: 0 }, tint: [0xffff66, 0xffaa00, 0xff5500, 0xff2200],
+        gravityY: 720, emitting: false,
+      });
+      lava.setDepth(60);
+      lava.explode(46, cx, cy);
+      this.time.delayedCall(1300, () => lava.destroy());
+
+      // Heavier, slower lava bombs arcing out.
+      const bombs = this.add.particles(cx, cy, 'fx-dot', {
+        speed: { min: 180, max: 440 }, angle: { min: 235, max: 305 },
+        lifespan: 1400, scale: { start: 5, end: 0 }, alpha: { start: 1, end: 0.2 },
+        tint: [0xff7a00, 0xff3300], gravityY: 820, emitting: false,
+      });
+      bombs.setDepth(61);
+      bombs.explode(10, cx, cy);
+      this.time.delayedCall(1700, () => bombs.destroy());
+    }
+  }
+
   #refreshScores() {
     this.scoreText.setText(`${this.score[1] || 0} / ${this.goalsToWin}   :   ${this.score[2] || 0} / ${this.goalsToWin}`);
   }
@@ -414,7 +529,7 @@ export class MatchScene extends Phaser.Scene {
         sfx.whoosh();
         this.#screenFlash(0xff0066, 0.4);
         this.cameras.main.shake(300, 0.008);
-        const sp = this.hill.spawnPoint;
+        const sp = this.volcano.spawnPoint;
         this.#glowFlash(sp.x, sp.y, 0xff5522, 2.2, 460);
         this.#shockwave(sp.x, sp.y, 0xff0066, 260);
         this.#sparkBurst(sp.x, sp.y, [0xff0066, 0xff8800, 0xffffff], 34);
@@ -425,6 +540,7 @@ export class MatchScene extends Phaser.Scene {
       }
       case 'chaosDrop': {
         this.spawner.spawnDrop(def.count || 10, opponent === 1 ? 'left' : 'right');
+        this.#erupt(); // T5 = instant volcano eruption
         sfx.cannon(); sfx.goal();
         // Big, repeated flashes + heavy shake + lightning + coin rain = top tier.
         this.cameras.main.shake(900, 0.02);
@@ -487,7 +603,7 @@ export class MatchScene extends Phaser.Scene {
     });
   }
 
-  // Ball hitting a static surface (floor, hill, wall): squash + throttled thud.
+  // Ball hitting a static surface (floor, volcano, wall): squash + throttled thud.
   #handleBounce(a, b) {
     let ball = null, other = null;
     if (a.label === 'ball') { ball = a.gameObject?.ballRef; other = b; }
