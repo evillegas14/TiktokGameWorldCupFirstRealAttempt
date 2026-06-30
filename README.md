@@ -93,7 +93,7 @@ Open the dev panel at **http://localhost:3000/dev** alongside the game and:
   |------|-------|--------|
   | T1 | 1–9 (e.g. Rose) | Cannon shot from your team's hill toward the opponent goal |
   | T2 | 10–49 | 5-ball drop on the opponent's half |
-  | T3 | 50–99 | Goalie buff for your team (bigger, glowing, 30s) |
+  | T3 | 50–99 | Aggression — your avatar charges the ball and barges/stuns opponents (15s) |
   | T4 | 100–499 | Super-ball — a flaming comet aimed at the opponent goal |
   | T5 | 500+ | Chaos: 10-ball drop + lightning + screen shake |
 

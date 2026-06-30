@@ -1,9 +1,13 @@
 import { PITCH, GOAL_Y, floorYAt } from '../world/Field.js';
 import { GAME_WIDTH } from '../constants.js';
+import { sfx } from '../audio/Sound.js';
 
 const PLAYER_RADIUS = 28;
 const KICK_FORCE = 0.06;
 const MOVE_SPEED = 2.8;
+const AGGRO_SPEED = 4.8;           // enraged players charge faster
+const STUN_MS = 2500;              // how long a bumped opponent stays stunned
+const BUMP_KNOCKBACK = 10;         // shove velocity applied to a bumped opponent
 const BASE_LIFE_MS = 300_000;     // 5 minutes
 const DONATE_FLOOR_MS = 600_000;  // donating bumps life up to at least 10 minutes
 const DONATE_ADD_MS = 300_000;    // and adds 5 minutes on top of current
@@ -15,6 +19,9 @@ export class Player {
     this.record = record;
     this.team = record.team;
     this.teamColor = teamColor;
+    this.aggroUntil = 0;     // Aggression power-up (charge + bump opponents)
+    this.stunnedUntil = 0;   // got bumped by an enraged opponent
+    this._wasAggro = false;
 
     // Home position on the team's side of the slope; players drift back here when idle.
     this.homeX = this.team === 1
@@ -105,8 +112,52 @@ export class Player {
     this.scene.tweens.add({ targets: t, y: t.y - 40, alpha: 0, duration: 900, onComplete: () => t.destroy() });
   }
 
-  update(_time, delta, balls) {
+  // AGGRESSION power-up: charge after the ball anywhere and barge through opponents.
+  enrage(durationMs = 15000) {
     if (this.destroyed) return;
+    this.aggroUntil = Math.max(this.aggroUntil, this.scene.time.now + durationMs);
+    this.ring.setStrokeStyle(4, 0xff3030);
+    if (!this.aura && this.scene.textures.exists('fx-glow')) {
+      this.aura = this.scene.add.image(0, 0, 'fx-glow')
+        .setScale(1.2).setTint(0xff2a2a).setAlpha(0.55).setBlendMode(Phaser.BlendModes.ADD);
+      // Behind the avatar ring but above the shadow.
+      this.container.addAt(this.aura, 1);
+      this.scene.tweens.add({
+        targets: this.aura, alpha: { from: 0.35, to: 0.7 }, scale: { from: 1.05, to: 1.45 },
+        duration: 360, yoyo: true, repeat: -1, ease: 'Sine.inOut',
+      });
+    }
+    const t = this.scene.add.text(this.body.position.x, this.body.position.y - 46, '😡 AGGRO!', {
+      fontSize: '20px', fontFamily: 'Impact', color: '#ff3b3b', stroke: '#000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(31);
+    this.scene.tweens.add({ targets: t, y: t.y - 36, alpha: 0, duration: 900, onComplete: () => t.destroy() });
+  }
+
+  // Got barged by an enraged opponent: knocked back + can't act for a moment.
+  stun(durationMs = STUN_MS, knockFrom = null) {
+    if (this.destroyed) return;
+    this.stunnedUntil = Math.max(this.stunnedUntil, this.scene.time.now + durationMs);
+    if (knockFrom) {
+      const kx = this.body.position.x - knockFrom.x;
+      const ky = this.body.position.y - knockFrom.y;
+      const kl = Math.hypot(kx, ky) || 1;
+      this.scene.matter.body.setVelocity(this.body, {
+        x: (kx / kl) * BUMP_KNOCKBACK, y: (ky / kl) * BUMP_KNOCKBACK - 4,
+      });
+    }
+    if (!this.stunIcon) {
+      this.stunIcon = this.scene.add.text(0, -PLAYER_RADIUS - 4, '💫', { fontSize: '22px' }).setOrigin(0.5);
+      this.container.add(this.stunIcon);
+    }
+    this.stunIcon.setVisible(true);
+    const flash = this.scene.add.circle(this.body.position.x, this.body.position.y, PLAYER_RADIUS, 0xffffff, 0.7).setDepth(30);
+    this.scene.tweens.add({ targets: flash, scale: { from: 0.6, to: 1.9 }, alpha: { from: 0.7, to: 0 }, duration: 320, onComplete: () => flash.destroy() });
+    sfx.thud(0.9);
+  }
+
+  update(_time, delta, balls, players) {
+    if (this.destroyed) return;
+    const now = this.scene.time.now;
 
     // Lifespan tick.
     this.life -= delta;
@@ -127,9 +178,30 @@ export class Player {
       this.maskShape.fillCircle(this.body.position.x, this.body.position.y, PLAYER_RADIUS * 0.8);
     }
 
-    // Pick the nearest ball within own half (plus slight overlap so they engage near the slit).
-    const myHalfMaxX = this.team === 1 ? GAME_WIDTH * 0.55 : GAME_WIDTH;
-    const myHalfMinX = this.team === 1 ? 0 : GAME_WIDTH * 0.45;
+    const aggro = now < this.aggroUntil;
+    const stunned = now < this.stunnedUntil;
+
+    // Aggression wearing off: restore normal look.
+    if (this._wasAggro && !aggro) {
+      this.ring.setStrokeStyle(3, 0x000000);
+      if (this.aura) { this.aura.destroy(); this.aura = null; }
+    }
+    this._wasAggro = aggro;
+
+    // Stunned: dizzy, can't chase — just ride out the knockback.
+    if (stunned) {
+      if (this.stunIcon) {
+        this.stunIcon.setVisible(true);
+        this.stunIcon.rotation = Math.sin(now / 110) * 0.4;
+      }
+      return;
+    }
+    if (this.stunIcon && this.stunIcon.visible) this.stunIcon.setVisible(false);
+
+    const speed = aggro ? AGGRO_SPEED : MOVE_SPEED;
+    // Aggressive players hunt the ball across the whole pitch; others keep to their half.
+    const myHalfMaxX = aggro ? GAME_WIDTH : (this.team === 1 ? GAME_WIDTH * 0.55 : GAME_WIDTH);
+    const myHalfMinX = aggro ? 0 : (this.team === 1 ? 0 : GAME_WIDTH * 0.45);
     let nearest = null;
     let nearestD = Infinity;
     for (const ball of balls) {
@@ -145,7 +217,7 @@ export class Player {
       const dx = nearest.x - this.body.position.x;
       const dy = nearest.y - this.body.position.y;
       const len = Math.hypot(dx, dy) || 1;
-      this.scene.matter.body.setVelocity(this.body, { x: (dx / len) * MOVE_SPEED, y: (dy / len) * MOVE_SPEED });
+      this.scene.matter.body.setVelocity(this.body, { x: (dx / len) * speed, y: (dy / len) * speed });
 
       // On near-contact, apply impulse to ball toward opponent goal.
       const contactDist = PLAYER_RADIUS + nearest.radius + 4;
@@ -155,10 +227,11 @@ export class Player {
         const tx = goalX - nearest.x;
         const ty = goalY - nearest.y;
         const tl = Math.hypot(tx, ty) || 1;
+        const force = aggro ? KICK_FORCE * 1.5 : KICK_FORCE;
         this.scene.matter.body.applyForce(
           nearest.image.body,
           { x: nearest.x, y: nearest.y },
-          { x: (tx / tl) * KICK_FORCE, y: (ty / tl) * KICK_FORCE },
+          { x: (tx / tl) * force, y: (ty / tl) * force },
         );
       }
     } else {
@@ -170,9 +243,23 @@ export class Player {
       });
     }
 
-    // Clamp x to own side so they don't drift across the field.
-    const minX = this.team === 1 ? PITCH.left + 40 : GAME_WIDTH * 0.5;
-    const maxX = this.team === 1 ? GAME_WIDTH * 0.5 : PITCH.right - 40;
+    // Aggression: barge into opponents — kick + stun any we run into.
+    if (aggro && players) {
+      const reach = (PLAYER_RADIUS * 2 + 6) ** 2;
+      for (const other of players.values()) {
+        if (other === this || other.destroyed || other.team === this.team) continue;
+        if (this.scene.time.now < other.stunnedUntil) continue; // already stunned
+        const dx = other.body.position.x - this.body.position.x;
+        const dy = other.body.position.y - this.body.position.y;
+        if (dx * dx + dy * dy <= reach) {
+          other.stun(STUN_MS, { x: this.body.position.x, y: this.body.position.y });
+        }
+      }
+    }
+
+    // Clamp x to the allowed range (own half normally; full pitch while enraged).
+    const minX = aggro ? PITCH.left + 40 : (this.team === 1 ? PITCH.left + 40 : GAME_WIDTH * 0.5);
+    const maxX = aggro ? PITCH.right - 40 : (this.team === 1 ? GAME_WIDTH * 0.5 : PITCH.right - 40);
     if (this.body.position.x < minX) this.scene.matter.body.setPosition(this.body, { x: minX, y: this.body.position.y });
     if (this.body.position.x > maxX) this.scene.matter.body.setPosition(this.body, { x: maxX, y: this.body.position.y });
   }

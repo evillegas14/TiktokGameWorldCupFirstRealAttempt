@@ -19,7 +19,7 @@ const ERUPT_INTERVAL_MS = 18000;
 const GIFT_LEGEND = [
   { t: 'T1', coins: '1–9',     label: 'Cannon shot', color: '#ffce00' },
   { t: 'T2', coins: '10–49',   label: '5-ball drop', color: '#ff8800' },
-  { t: 'T3', coins: '50–99',   label: 'Goalie buff', color: '#00d4ff' },
+  { t: 'T3', coins: '50–99',   label: 'Aggression', color: '#ff6a3d' },
   { t: 'T4', coins: '100–499', label: 'Super ball',  color: '#ff5aa0' },
   { t: 'T5', coins: '500+',    label: 'Chaos+erupt', color: '#ff3b3b' },
 ];
@@ -149,7 +149,7 @@ export class MatchScene extends Phaser.Scene {
   update(time, delta) {
     this.spawner.update(time, delta);
     const balls = [...this.spawner.balls];
-    for (const player of this.players.values()) player.update(time, delta, balls);
+    for (const player of this.players.values()) player.update(time, delta, balls, this.players);
     for (const g of Object.values(this.goalies)) g.update(time, delta, balls);
   }
 
@@ -513,14 +513,27 @@ export class MatchScene extends Phaser.Scene {
         this.#announceGift(name, `${def.label} · ${def.count || 5} BALLS`, '#ff8800', tier, coins);
         break;
       }
-      case 'goalieBuff': {
-        this.goalies[senderTeam].buff(def.durationMs || 30000, def.scale || 1.5);
-        const gk = this.goalies[senderTeam];
-        this.#screenFlash(0x00d4ff, 0.25);
-        this.#glowFlash(gk.x, gk.baseY, 0x00d4ff, 1.8, 420);
-        this.#shockwave(gk.x, gk.baseY, 0x00d4ff, 200);
-        this.#sparkBurst(gk.x, gk.baseY, [0x00d4ff, 0xffffff], 26);
-        this.#announceGift(name, `🧤 WALL UP · ${senderTeam === 1 ? this.teamA.code : this.teamB.code}`, '#00d4ff', tier, coins);
+      case 'aggression': {
+        // Enrage the donor's own avatar (or, if they haven't joined, a few of their
+        // teammates) — they charge the ball and barge/stun opposing players.
+        const dur = def.durationMs || 15000;
+        let enraged = 0;
+        if (me) { me.enrage(dur); enraged = 1; }
+        else {
+          for (const p of this.players.values()) {
+            if (p.team === senderTeam) { p.enrage(dur); if (++enraged >= 3) break; }
+          }
+        }
+        const focus = me ? me.body.position
+          : { x: senderTeam === 1 ? GAME_WIDTH * 0.3 : GAME_WIDTH * 0.7, y: 760 };
+        sfx.whoosh();
+        this.#screenFlash(0xff2a2a, 0.22);
+        this.cameras.main.shake(160, 0.004);
+        this.#glowFlash(focus.x, focus.y, 0xff2a2a, 1.9, 440);
+        this.#shockwave(focus.x, focus.y, 0xff2a2a, 230);
+        this.#sparkBurst(focus.x, focus.y, [0xff2a2a, 0xff7a00, 0xffffff], 28);
+        const teamCode = senderTeam === 1 ? this.teamA.code : this.teamB.code;
+        this.#announceGift(name, `😡 AGGRESSION · ${teamCode}`, '#ff3b3b', tier, coins);
         break;
       }
       case 'superBall': {

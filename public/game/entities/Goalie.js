@@ -8,8 +8,6 @@ export class Goalie {
     this.scene = scene;
     this.team = team;
     this.teamColor = teamColor;
-    this.buffUntil = 0;
-    this.scaleMul = 1;
     this.jumpCooldownUntil = 0;
 
     this.x = team === 1 ? PITCH.left + 70 : PITCH.right - 70;
@@ -52,79 +50,65 @@ export class Goalie {
     this.bounceTime = Math.random() * Math.PI * 2;
   }
 
-  buff(durationMs, scale) {
-    this.buffUntil = this.scene.time.now + durationMs;
-    this.scaleMul = scale;
-    if (!this.aura && this.scene.textures.exists('fx-glow')) {
-      this.aura = this.scene.add.image(this.x, this.y, 'fx-glow').setDepth(4).setScale(1.4).setTint(0x00d4ff);
-      this.scene.tweens.add({
-        targets: this.aura, alpha: { from: 0.35, to: 0.7 }, scale: { from: 1.2, to: 1.6 },
-        duration: 500, yoyo: true, repeat: -1,
-      });
-    }
-  }
-
   update(_time, delta, balls) {
-    if (this.scene.time.now > this.buffUntil) {
-      this.scaleMul = 1;
-      if (this.aura) { this.aura.destroy(); this.aura = null; }
-    }
-
-    // Predict if any ball will reach the goal mouth within ~0.5s
+    // Keepers are good by default now (no donation buff). Find the most imminent
+    // incoming ball and slide to intercept its projected height.
     const goalX = this.team === 1 ? PITCH.left : PITCH.right;
-    let triggerJump = false;
+    const mouthHalf = PITCH.goalMouthHeight / 2;
+
+    let bestT = Infinity;
+    let projY = null;
     for (const ball of balls) {
       if (ball.destroyed) continue;
       const vx = ball.vx;
-      const movingToward = (this.team === 1 && vx < -2) || (this.team === 2 && vx > 2);
+      const movingToward = (this.team === 1 && vx < -1.5) || (this.team === 2 && vx > 1.5);
       if (!movingToward) continue;
-      const t = (goalX - ball.x) / vx; // seconds to reach goal line (vx in px/sec? actually px/step)
-      if (t > 0 && t < 30) { // matter velocity units are px/step at ~60fps so 30 steps = 0.5s
-        const projY = ball.y + ball.vy * t;
-        if (Math.abs(projY - this.baseY) < PITCH.goalMouthHeight / 2 + 20) {
-          triggerJump = true;
-          break;
-        }
-      }
+      const t = (goalX - ball.x) / vx; // steps to reach the goal line (~px/step @60fps)
+      if (t <= 0 || t > 70) continue;  // look ~1.1s ahead
+      const py = ball.y + ball.vy * t;
+      if (py < this.baseY - mouthHalf - 50 || py > this.baseY + mouthHalf + 50) continue;
+      if (t < bestT) { bestT = t; projY = py; }
     }
 
-    if (triggerJump && this.scene.time.now > this.jumpCooldownUntil) {
-      this.scene.matter.body.setVelocity(this.body, { x: 0, y: -10 });
-      this.jumpCooldownUntil = this.scene.time.now + 600;
-      // Throw the gloves up for the save.
-      this.diving = this.scene.time.now + 400;
-    }
-
-    // Idle bounce — patrol most of the goal mouth vertically.
-    this.bounceTime += delta / 220;
-    const idleY = this.baseY + Math.sin(this.bounceTime) * 110;
-    const currentY = this.body.position.y;
-    if (Math.abs(currentY - idleY) < 4 && Math.abs(this.body.velocity.y) < 0.5) {
-      this.scene.matter.body.setPosition(this.body, { x: this.x, y: idleY });
-      this.scene.matter.body.setVelocity(this.body, { x: 0, y: 0 });
+    // Target height: intercept the incoming ball, else patrol gently.
+    let targetY;
+    if (projY != null) {
+      targetY = Phaser.Math.Clamp(projY, this.baseY - mouthHalf, this.baseY + mouthHalf);
     } else {
-      this.scene.matter.body.setPosition(this.body, { x: this.x, y: this.body.position.y });
+      this.bounceTime += delta / 260;
+      targetY = this.baseY + Math.sin(this.bounceTime) * (mouthHalf * 0.6);
+    }
+
+    // Brisk reflexes toward the target; x stays pinned to the goal line.
+    const dy = targetY - this.body.position.y;
+    this.scene.matter.body.setVelocity(this.body, { x: 0, y: Phaser.Math.Clamp(dy * 0.5, -17, 17) });
+    this.scene.matter.body.setPosition(this.body, { x: this.x, y: this.body.position.y });
+
+    // Throw the gloves up when committing to a close save.
+    if (projY != null && bestT < 24 && this.scene.time.now > this.jumpCooldownUntil) {
+      this.diving = this.scene.time.now + 360;
+      this.jumpCooldownUntil = this.scene.time.now + 320;
     }
 
     // Sync visuals.
     this.sprite.x = this.body.position.x;
     this.sprite.y = this.body.position.y;
-    this.sprite.scaleX = this.scaleMul;
-    this.sprite.scaleY = this.scaleMul;
 
-    // Gloves raise while diving for a save.
+    // Gloves raise + spread while diving for a save.
     const diving = this.scene.time.now < (this.diving || 0);
     const gy = diving ? -34 : 2;
+    const gx = diving ? BASE_W / 2 + 12 : BASE_W / 2 + 6;
     this.gloveL.y = Phaser.Math.Linear(this.gloveL.y, gy, 0.4);
     this.gloveR.y = Phaser.Math.Linear(this.gloveR.y, gy, 0.4);
+    this.gloveL.x = Phaser.Math.Linear(this.gloveL.x, -gx, 0.35);
+    this.gloveR.x = Phaser.Math.Linear(this.gloveR.x, gx, 0.35);
 
-    // Ground shadow shrinks with jump height.
-    const jump = Phaser.Math.Clamp((this.baseY + 110 - this.body.position.y) / 220, 0, 1);
-    this.shadow.scaleX = (1 - jump * 0.5) * this.scaleMul;
-    this.shadow.setAlpha(0.3 - jump * 0.15);
+    // Ground shadow shrinks as the keeper rises above its base line.
+    const above = Phaser.Math.Clamp((this.baseY - this.body.position.y) / mouthHalf, 0, 1);
+    this.shadow.scaleX = 1 - above * 0.4;
+    this.shadow.setAlpha(0.3 - above * 0.12);
 
     this.label.x = this.sprite.x;
-    this.label.y = this.body.position.y - (BASE_H * this.scaleMul) / 2 - 14;
-    if (this.aura) { this.aura.x = this.sprite.x; this.aura.y = this.sprite.y; }
+    this.label.y = this.body.position.y - BASE_H / 2 - 14;
   }
 }
