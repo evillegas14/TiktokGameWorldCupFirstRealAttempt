@@ -21,9 +21,9 @@ export class Ball {
     const texKey = this.#textureKey();
     this.image = scene.matter.add.image(x, y, texKey, undefined, {
       shape: { type: 'circle', radius },
-      restitution: 0.95,   // bouncy — Matter uses the max restitution of the pair
-      friction: 0.02,
-      frictionAir: 0.004,
+      restitution: 0.985,  // very bouncy — Matter uses the max restitution of the pair
+      friction: 0.012,
+      frictionAir: 0.0025, // low drag so balls keep their energy and stay lively
       density: 0.0015,
       label: 'ball',
     });
@@ -76,13 +76,13 @@ export class Ball {
     // Keep-alive: if a ball goes nearly idle (e.g. nobody is playing), give it a
     // lively random kick so the match keeps moving on its own.
     const speed = Math.hypot(this.image.body.velocity.x, this.image.body.velocity.y);
-    if (speed < 1.3) {
+    if (speed < 1.5) {
       this.idleMs = (this.idleMs || 0) + delta;
-      if (this.idleMs > 1100) {
+      if (this.idleMs > 900) {
         this.idleMs = 0;
         const dir = this.image.x < 960 ? 1 : -1; // nudge toward the far side
-        this.image.setVelocity((4 + Math.random() * 4) * dir, -(5 + Math.random() * 4));
-        this.image.setAngularVelocity((Math.random() - 0.5) * 0.8);
+        this.image.setVelocity((5 + Math.random() * 5) * dir, -(7 + Math.random() * 5));
+        this.image.setAngularVelocity((Math.random() - 0.5) * 0.9);
       }
     } else {
       this.idleMs = 0;

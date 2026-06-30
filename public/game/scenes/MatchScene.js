@@ -312,6 +312,30 @@ export class MatchScene extends Phaser.Scene {
     this.time.delayedCall(2600, () => p.destroy());
   }
 
+  // Soft radial glow pop (photo-like bloom) using the shared fx-glow texture.
+  #glowFlash(x, y, color = 0xffffff, maxScale = 1.6, dur = 360) {
+    if (!this.textures.exists('fx-glow')) return;
+    const img = this.add.image(x, y, 'fx-glow').setDepth(59).setTint(color).setScale(0.3).setAlpha(0.95);
+    this.tweens.add({
+      targets: img, scale: { from: 0.4, to: maxScale }, alpha: { from: 0.95, to: 0 },
+      duration: dur, ease: 'Quad.out', onComplete: () => img.destroy(),
+    });
+  }
+
+  // Billowing smoke puffs (soft gray glows drifting up) — adds weight to blasts.
+  #smokePuff(x, y, count = 6, tint = 0x9a9a9a) {
+    if (!this.textures.exists('fx-glow')) return;
+    for (let i = 0; i < count; i++) {
+      const px = x + (Math.random() - 0.5) * 40;
+      const s = this.add.image(px, y, 'fx-glow').setDepth(57).setTint(tint).setScale(0.16).setAlpha(0.5);
+      this.tweens.add({
+        targets: s, y: y - 60 - Math.random() * 70, x: px + (Math.random() - 0.5) * 80,
+        scale: { from: 0.16, to: 0.6 + Math.random() * 0.3 }, alpha: { from: 0.5, to: 0 },
+        duration: 900 + Math.random() * 400, onComplete: () => s.destroy(),
+      });
+    }
+  }
+
   #refreshScores() {
     this.scoreText.setText(`${this.score[1] || 0} / ${this.goalsToWin}   :   ${this.score[2] || 0} / ${this.goalsToWin}`);
   }
@@ -356,6 +380,9 @@ export class MatchScene extends Phaser.Scene {
         this.cannons[senderTeam].fire(this.spawner);
         sfx.cannon();
         this.cameras.main.shake(180, 0.005);
+        const mz = this.cannons[senderTeam].muzzleTip;
+        this.#glowFlash(mz.x, mz.y, 0xffaa33, 1.4, 320);
+        this.#smokePuff(mz.x, mz.y, 5, 0x8a8a8a);
         this.#announceGift(name, def.label, '#ffce00', tier, coins);
         break;
       }
@@ -364,8 +391,10 @@ export class MatchScene extends Phaser.Scene {
         const dx = opponent === 1 ? GAME_WIDTH * 0.25 : GAME_WIDTH * 0.75;
         this.#screenFlash(0xff8800, 0.3);
         this.cameras.main.shake(250, 0.006);
+        this.#glowFlash(dx, 240, 0xff8800, 2.0, 420);
         this.#shockwave(dx, 240, 0xff8800, 260);
         this.#sparkBurst(dx, 240, [0xff8800, 0xffff66, 0xffffff], 30);
+        this.#smokePuff(dx, 320, 7, 0x7a6a55);
         this.#announceGift(name, `${def.label} · ${def.count || 5} BALLS`, '#ff8800', tier, coins);
         break;
       }
@@ -373,6 +402,7 @@ export class MatchScene extends Phaser.Scene {
         this.goalies[senderTeam].buff(def.durationMs || 30000, def.scale || 1.5);
         const gk = this.goalies[senderTeam];
         this.#screenFlash(0x00d4ff, 0.25);
+        this.#glowFlash(gk.x, gk.baseY, 0x00d4ff, 1.8, 420);
         this.#shockwave(gk.x, gk.baseY, 0x00d4ff, 200);
         this.#sparkBurst(gk.x, gk.baseY, [0x00d4ff, 0xffffff], 26);
         this.#announceGift(name, `🧤 WALL UP · ${senderTeam === 1 ? this.teamA.code : this.teamB.code}`, '#00d4ff', tier, coins);
@@ -384,8 +414,11 @@ export class MatchScene extends Phaser.Scene {
         sfx.whoosh();
         this.#screenFlash(0xff0066, 0.4);
         this.cameras.main.shake(300, 0.008);
-        this.#shockwave(this.hill.spawnPoint.x, this.hill.spawnPoint.y, 0xff0066, 260);
-        this.#sparkBurst(this.hill.spawnPoint.x, this.hill.spawnPoint.y, [0xff0066, 0xff8800, 0xffffff], 34);
+        const sp = this.hill.spawnPoint;
+        this.#glowFlash(sp.x, sp.y, 0xff5522, 2.2, 460);
+        this.#shockwave(sp.x, sp.y, 0xff0066, 260);
+        this.#sparkBurst(sp.x, sp.y, [0xff0066, 0xff8800, 0xffffff], 34);
+        this.#smokePuff(sp.x, sp.y, 8, 0x553344);
         this.#coinRain(18);
         this.#announceGift(name, '🔥 SUPER BALL!', '#ff0066', tier, coins);
         break;
@@ -401,8 +434,11 @@ export class MatchScene extends Phaser.Scene {
         for (let i = 0; i < 5; i++) {
           this.time.delayedCall(i * 90, () => {
             const lx = Phaser.Math.Between(half[0], half[1]);
+            const ly = 250 + Math.random() * 250;
             this.#lightning(lx, 300 + Math.random() * 320);
-            this.#shockwave(lx, 250 + Math.random() * 250, 0xff0066, 300);
+            this.#shockwave(lx, ly, 0xff0066, 300);
+            this.#glowFlash(lx, ly, 0xffffff, 1.8, 300);
+            this.#smokePuff(lx, ly + 60, 5, 0x6a5a4a);
           });
         }
         this.#sparkBurst(GAME_WIDTH / 2, GAME_HEIGHT / 2, [0xff0066, 0xffce00, 0xffffff], 60);
@@ -484,6 +520,7 @@ export class MatchScene extends Phaser.Scene {
     this.cameras.main.shake(260, 0.007);
     const goalX = a.label === 'goal-left' ? PITCH.left + 40 : PITCH.right - 40;
     this.fx?.confettiBurst(goalX, GOAL_Y, 120);
+    this.#glowFlash(goalX, GOAL_Y, teamColor, 2.4, 500);
     this.#shockwave(goalX, GOAL_Y, teamColor, 340);
     this.time.delayedCall(110, () => this.#shockwave(goalX, GOAL_Y, 0xffffff, 260));
     this.#sparkBurst(goalX, GOAL_Y, [teamColor, 0xffffff], 44);
