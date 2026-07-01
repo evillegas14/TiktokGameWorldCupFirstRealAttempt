@@ -1,5 +1,5 @@
 {
-  "goalsToWin": 5,
+  "goalsToWin": 100,
   "voteSeconds": 60,
   "winnerDisplaySeconds": 5,
   "clearPlayersBetweenMatches": true,

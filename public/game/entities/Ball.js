@@ -32,7 +32,7 @@ export class Ball {
     const texKey = this.#textureKey();
     this.image = scene.matter.add.image(x, y, texKey, undefined, {
       shape: { type: 'circle', radius },
-      restitution: 0.985,  // very bouncy — Matter uses the max restitution of the pair
+      restitution: 0.808,  // bounciness (was 0.985, lowered 18%) — Matter uses the max restitution of the pair
       friction: 0.012,
       frictionAir: 0.0025, // low drag so balls keep their energy and stay lively
       density: 0.0015,
@@ -100,9 +100,17 @@ export class Ball {
     const av = this.image.body.angularVelocity;
     if (Math.abs(av) < 0.05) this.image.setAngularVelocity(av >= 0 ? 0.1 : -0.1);
 
+    // Cap runaway speed (well above eruption/cannon launch speeds) so a ball can't
+    // punch through a wall in a single step and fly off the map.
+    const speed = Math.hypot(this.image.body.velocity.x, this.image.body.velocity.y);
+    const MAX_SPEED = 32;
+    if (speed > MAX_SPEED) {
+      const v = this.image.body.velocity;
+      this.image.setVelocity((v.x / speed) * MAX_SPEED, (v.y / speed) * MAX_SPEED);
+    }
+
     // Keep-alive: if a ball goes nearly idle (e.g. nobody is playing), give it a
     // lively random kick so the match keeps moving on its own.
-    const speed = Math.hypot(this.image.body.velocity.x, this.image.body.velocity.y);
     if (speed < 1.5) {
       this.idleMs = (this.idleMs || 0) + delta;
       if (this.idleMs > 900) {

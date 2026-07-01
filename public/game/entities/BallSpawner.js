@@ -1,4 +1,5 @@
 import { Ball } from './Ball.js';
+import { GAME_WIDTH, GAME_HEIGHT } from '../constants.js';
 
 export class BallSpawner {
   constructor(scene, opts) {
@@ -102,8 +103,22 @@ export class BallSpawner {
     ball.respawn(x, y - 30, 0.5 * sign);
   }
 
+  // A ball that tunneled through a wall at high speed (eruption/cannon) and flew off
+  // the pitch. It's still counted as "alive", so without this the field could look
+  // empty. Generous margin so normal high bounces near the edges don't trigger it.
+  #outOfBounds(ball) {
+    return ball.x < -80 || ball.x > GAME_WIDTH + 80
+      || ball.y < -160 || ball.y > GAME_HEIGHT + 160;
+  }
+
   update(time, delta) {
-    for (const ball of this.balls) ball.update(time, delta);
+    for (const ball of this.balls) {
+      ball.update(time, delta);
+      // Rescue escaped balls back onto the hill instead of losing them off-map.
+      if (!ball.destroyed && this.#outOfBounds(ball)) this.respawnAtHill(ball);
+    }
+    // Belt-and-suspenders: guarantee there are always at least two balls in play.
+    if (this.balls.size < this.minBalls) this.spawnPair();
   }
 
   ensureStarted() {

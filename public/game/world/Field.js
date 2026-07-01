@@ -95,17 +95,20 @@ export function buildField(scene) {
   }
 
   // --- Top wall + goal-mouth side walls ---
-  scene.matter.add.rectangle(GAME_WIDTH / 2, PITCH.top - 10, GAME_WIDTH, 20, wallOpts);
+  // Thick walls (not thin 20px strips) so fast balls — eruption launches, cannon
+  // shots — can't tunnel straight through them and escape the pitch in one step.
+  scene.matter.add.rectangle(GAME_WIDTH / 2, PITCH.top - 45, GAME_WIDTH, 90, wallOpts);
 
   const mouthTop = GOAL_Y - PITCH.goalMouthHeight / 2;
   const aboveH = mouthTop - PITCH.top;
   // Walls above each goal mouth (below the mouth is the floor, so no wall needed there).
-  scene.matter.add.rectangle(PITCH.left, PITCH.top + aboveH / 2, 20, aboveH, wallOpts);
-  scene.matter.add.rectangle(PITCH.right, PITCH.top + aboveH / 2, 20, aboveH, wallOpts);
+  scene.matter.add.rectangle(PITCH.left - 15, PITCH.top + aboveH / 2, 50, aboveH, wallOpts);
+  scene.matter.add.rectangle(PITCH.right + 15, PITCH.top + aboveH / 2, 50, aboveH, wallOpts);
 
-  // Goal back walls (stop balls that have gone in).
-  scene.matter.add.rectangle(PITCH.left - 60, GOAL_Y, 20, PITCH.goalMouthHeight, wallOpts);
-  scene.matter.add.rectangle(PITCH.right + 60, GOAL_Y, 20, PITCH.goalMouthHeight, wallOpts);
+  // Goal back walls (stop balls that have gone in), taller than the mouth to catch
+  // high/curving shots.
+  scene.matter.add.rectangle(PITCH.left - 60, GOAL_Y, 40, PITCH.goalMouthHeight + 140, wallOpts);
+  scene.matter.add.rectangle(PITCH.right + 60, GOAL_Y, 40, PITCH.goalMouthHeight + 140, wallOpts);
 
   // --- Goal sensors ---
   const leftGoal = scene.matter.add.rectangle(PITCH.left - 30, GOAL_Y, 40, PITCH.goalMouthHeight - 10, {
