@@ -1,4 +1,4 @@
-import { floorYAt } from '../world/Field.js';
+import { floorYAt, CATEGORY_VOLCANO } from '../world/Field.js';
 
 export const BALL_RADIUS = 22;
 export const SUPER_RADIUS = 32;
@@ -43,6 +43,11 @@ export class Ball {
     // a *fresh* body and silently drop the 'ball' label (breaking goal detection)
     // and our material settings (killing the bounce).
     this.image.ballRef = this;
+    // Cannon & super shots are launched from on/over the volcano — let them fly over
+    // the cone cleanly instead of clipping it (regular balls still bounce off it).
+    if (this.kind === 'cannon' || this.kind === 'super') {
+      this.image.body.collisionFilter.mask &= ~CATEGORY_VOLCANO;
+    }
     const fx = SPECIAL_FX[this.kind];
     this.image.setDepth(fx ? fx.depth : 2); // above its ground shadow (depth 1)
 

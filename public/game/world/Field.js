@@ -20,6 +20,11 @@ export const PITCH = Object.freeze({
 // Goal-mouth vertical center, sitting just above the side floor.
 export const GOAL_Y = PITCH.sideFloorY - PITCH.goalMouthHeight / 2;
 
+// Matter collision category for the volcano body. Cannon/super shots are launched
+// from on/over the cone, so they clear this category from their mask to fly cleanly
+// over the volcano instead of clipping it; regular balls still bounce off it.
+export const CATEGORY_VOLCANO = 0x0002;
+
 // Floor height at a given x: parabolic bowl + a gaussian divot under the hill.
 export function floorYAt(x) {
   const norm = Phaser.Math.Clamp((x - PITCH.centerX) / (PITCH.right - PITCH.centerX), -1, 1);

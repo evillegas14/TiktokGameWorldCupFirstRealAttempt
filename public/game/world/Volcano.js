@@ -3,7 +3,7 @@
 // gets stuck — balls and players roll over its slopes or pass through the slit above
 // the bowl floor at its base. The crater glows and periodically ERUPTS (the eruption
 // itself is orchestrated by MatchScene, which has the live ball list + camera + sfx).
-import { PITCH } from './Field.js';
+import { PITCH, CATEGORY_VOLCANO } from './Field.js';
 import { GAME_WIDTH } from '../constants.js';
 
 export function buildVolcano(scene) {
@@ -31,6 +31,8 @@ export function buildVolcano(scene) {
   const c = polyCentroid(corners);
   scene.matter.add.fromVertices(c.x, c.y, corners, {
     isStatic: true, friction: 0.06, restitution: 0.55, label: 'volcano',
+    // Own category so cannon/super shots can opt out of colliding with the cone.
+    collisionFilter: { category: CATEGORY_VOLCANO },
   });
 
   // Soft ground shadow under the base, so it reads as grounded above the slit.
