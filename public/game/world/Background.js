@@ -23,6 +23,11 @@ export function createBackground(scene, teamAColor = '#ffffff', teamBColor = '#f
   // tier dividers
   g.fillStyle(0x0d1120, 1);
   for (let y = standTop + 50; y < standBot; y += 55) g.fillRect(0, y, W, 6);
+  // Corduroy seat-row shading + vertical aisle columns so the stand reads as
+  // rows of seats rather than a flat band (crowd specks are drawn on top).
+  for (let y = standTop + 4; y < standBot; y += 9) { g.fillStyle(0x000000, 0.10); g.fillRect(0, y, W, 3); }
+  g.fillStyle(0x0b0f1c, 0.8);
+  for (let x = 0; x < W; x += 150) g.fillRect(x, standTop, 3, standBot - standTop);
 
   // --- Crowd specks (team colors + white) ---
   const aColor = Phaser.Display.Color.HexStringToColor(teamAColor).color;
@@ -62,6 +67,17 @@ export function createBackground(scene, teamAColor = '#ffffff', teamBColor = '#f
   g.fillCircle(W / 2, H * 0.62, 520);
   g.fillStyle(0x2bd06a, 0.06);
   g.fillCircle(W / 2, H * 0.62, 720);
+
+  // Bright front railing along the stand lip.
+  g.fillStyle(0x5b6785, 0.9); g.fillRect(0, standBot - 4, W, 4);
+  g.fillStyle(0x8894b0, 0.5); g.fillRect(0, standBot - 4, W, 1);
+  // Faint sky grain / distant lights for atmosphere in the visible upper band.
+  for (let i = 0; i < 500; i++) {
+    const x = Math.random() * W;
+    const y = Math.random() * 300;
+    g.fillStyle(Math.random() < 0.5 ? 0x1a2340 : 0x243357, 0.5);
+    g.fillRect(x, y, 2, 2);
+  }
 
   g.generateTexture(KEY, W, H);
   g.destroy();

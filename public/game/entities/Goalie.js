@@ -35,12 +35,19 @@ export class Goalie {
     // Keeper character: body + head + eyes + gloves, in a container we move/scale.
     this.sprite = scene.add.container(this.x, this.y).setDepth(6);
     const body = scene.add.rectangle(0, 10, BASE_W, 52, color).setStrokeStyle(3, 0x000000);
+    // Jersey texture: two shaded hoops + a keeper number.
+    const stripe1 = scene.add.rectangle(0, -2, BASE_W, 7, 0x000000, 0.22);
+    const stripe2 = scene.add.rectangle(0, 16, BASE_W, 7, 0x000000, 0.22);
+    const shine = scene.add.rectangle(-BASE_W / 2 + 5, 10, 5, 46, 0xffffff, 0.14);
+    const num = scene.add.text(0, 8, '1', {
+      fontSize: '20px', fontFamily: 'Impact', color: '#ffffff', stroke: '#000', strokeThickness: 3,
+    }).setOrigin(0.5);
     const head = scene.add.circle(0, -26, 14, 0xf1c27d).setStrokeStyle(2, 0x000000);
     const eyeL = scene.add.circle(-5, -28, 2.2, 0x000000);
     const eyeR = scene.add.circle(5, -28, 2.2, 0x000000);
     this.gloveL = scene.add.circle(-BASE_W / 2 - 6, 2, 7, 0xffffff).setStrokeStyle(2, 0x000000);
     this.gloveR = scene.add.circle(BASE_W / 2 + 6, 2, 7, 0xffffff).setStrokeStyle(2, 0x000000);
-    this.sprite.add([body, this.gloveL, this.gloveR, head, eyeL, eyeR]);
+    this.sprite.add([body, stripe1, stripe2, shine, num, this.gloveL, this.gloveR, head, eyeL, eyeR]);
 
     this.label = scene.add.text(this.x, this.y - BASE_H / 2 - 14, 'GK', {
       fontSize: '16px', fontFamily: 'Impact', color: '#ffffff', stroke: '#000', strokeThickness: 2,

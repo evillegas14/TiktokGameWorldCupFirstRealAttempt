@@ -74,6 +74,31 @@ export function buildField(scene) {
   }
   stripes.setMask(pitchMask);
 
+  // Turf texture: soft mottled patches, fine grain speckle, and short grass blades
+  // so the pitch reads as real turf instead of a flat green fill. Drawn once and
+  // clipped to the bowl.
+  const turf = scene.add.graphics();
+  const rx = () => PITCH.left + Math.random() * (PITCH.right - PITCH.left);
+  const ry = () => PITCH.top + Math.random() * (GAME_HEIGHT - PITCH.top);
+  for (let i = 0; i < 55; i++) { // large soft mottling
+    turf.fillStyle(Math.random() < 0.5 ? 0x0b6a20 : 0x179a36, 0.12);
+    turf.fillEllipse(rx(), ry(), 70 + Math.random() * 160, 30 + Math.random() * 80);
+  }
+  for (let i = 0; i < 2200; i++) { // fine grain speckle
+    turf.fillStyle(Math.random() < 0.5 ? 0x0a5a1b : 0x1cae3d, 0.22);
+    const s = 1 + Math.round(Math.random());
+    turf.fillRect(rx(), ry(), s, s);
+  }
+  for (let i = 0; i < 1400; i++) { // short blades
+    const gx = rx(), gy = ry();
+    turf.lineStyle(1, Math.random() < 0.5 ? 0x22b846 : 0x0c6b22, 0.3);
+    turf.beginPath();
+    turf.moveTo(gx, gy);
+    turf.lineTo(gx + (Math.random() - 0.5) * 3, gy - (3 + Math.random() * 5));
+    turf.strokePath();
+  }
+  turf.setMask(pitchMask);
+
   // Floor surface line.
   const floorLine = scene.add.graphics();
   floorLine.lineStyle(6, 0x0a5a1b, 1);

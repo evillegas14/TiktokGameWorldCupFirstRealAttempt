@@ -44,6 +44,11 @@ export class Player {
     this.container.add(this.shadow);
     this.ring = scene.add.circle(0, 0, PLAYER_RADIUS, ringColor).setStrokeStyle(3, 0x000000);
     this.container.add(this.ring);
+    // Depth texture on the jersey ring: a darker inner rim + a soft top-left shine.
+    this.rim = scene.add.circle(0, 0, PLAYER_RADIUS - 3).setStrokeStyle(3, 0x000000, 0.22);
+    this.container.add(this.rim);
+    this.shine = scene.add.ellipse(-PLAYER_RADIUS * 0.3, -PLAYER_RADIUS * 0.32, PLAYER_RADIUS * 0.95, PLAYER_RADIUS * 0.55, 0xffffff, 0.14);
+    this.container.add(this.shine);
     this.initials = scene.add.text(0, 0, (record.nickname || record.uniqueId || '?').slice(0, 2).toUpperCase(), {
       fontSize: '18px', fontFamily: 'Arial Black', color: '#ffffff',
       stroke: '#000', strokeThickness: 3,
