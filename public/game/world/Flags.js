@@ -1,18 +1,19 @@
-// Team flags. Tries to load real national flags (flagcdn, by ISO code) and
-// gracefully falls back to a team-colored flag if the image can't be fetched
-// (e.g. offline). Shared by the VoteScene tiles and the in-match decorations.
+// Team flags. Loads REAL national flags from locally-bundled SVGs (public/assets/
+// flags/<iso>.svg), so they always render accurately with no CDN dependency, and
+// falls back to a team-colored cloth only if an iso is somehow missing. Shared by
+// the VoteScene tiles and the in-match decorations.
 import { PITCH, floorYAt } from './Field.js';
 import { GAME_WIDTH } from '../constants.js';
 
 export function flagKey(iso) { return 'flag:' + iso; }
-export function flagUrl(iso) { return `https://flagcdn.com/w320/${iso}.png`; }
+export function flagUrl(iso) { return `/assets/flags/${iso}.svg`; }
 
-// Queue a batch of flag image loads; calls onComplete once the loader finishes.
-// Safe to call with isos that may 404 — those simply won't exist afterward.
+// Queue a batch of flag SVG loads; calls onComplete once the loader finishes.
+// SVGs are rasterized at a crisp 4:3 size for the waving cloth.
 export function loadFlags(scene, isos, onComplete) {
   const unique = [...new Set(isos)].filter((iso) => iso && !scene.textures.exists(flagKey(iso)));
   if (unique.length === 0) { onComplete && onComplete(); return; }
-  for (const iso of unique) scene.load.image(flagKey(iso), flagUrl(iso));
+  for (const iso of unique) scene.load.svg(flagKey(iso), flagUrl(iso), { width: 320, height: 240 });
   scene.load.once('complete', () => onComplete && onComplete());
   // loaderror is non-fatal; the loader still emits 'complete'.
   scene.load.start();
@@ -40,7 +41,7 @@ function ensureClothTexture(scene, team) {
 // A single waving flag: pole + cloth. Uses the real flag image if available, else a
 // team-colored cloth texture. The cloth is a Rope whose points ripple with a
 // traveling sine wave so it waves in the wind. Returns the container.
-export function makeFlag(scene, x, y, team, { scale = 1, poleH = 90, clothW = 78, clothH = 52 } = {}) {
+export function makeFlag(scene, x, y, team, { scale = 1, poleH = 90, clothW = 80, clothH = 60 } = {}) {
   const c = scene.add.container(x, y).setScale(scale);
 
   const pole = scene.add.rectangle(0, 0, 5, poleH, 0x6b6b6b).setOrigin(0.5, 1).setStrokeStyle(1, 0x303030);
@@ -61,7 +62,7 @@ export function makeFlag(scene, x, y, team, { scale = 1, poleH = 90, clothW = 78
     const count = 18;
     cloth = scene.add.rope(clothX, clothY, texKey, null, count, true);
     cloth.setScale(clothW / texW, clothH / texH);
-    const amp = texH * 0.16;                 // in texture space; scaled down with the rope
+    const amp = texH * 0.11;                 // in texture space; scaled down with the rope
     const speed = 1.5 + Math.random() * 0.5;
     const phase0 = Math.random() * Math.PI * 2;
     scene.tweens.add({
@@ -90,8 +91,8 @@ export function makeFlag(scene, x, y, team, { scale = 1, poleH = 90, clothW = 78
 export function buildMatchFlags(scene, teamA, teamB) {
   const apply = () => {
     // Big stand flags high up on each side (clear of the HUD + leaderboard).
-    makeFlag(scene, GAME_WIDTH * 0.30, 250, teamA, { scale: 1.3, clothW: 100, clothH: 66, poleH: 120 });
-    makeFlag(scene, GAME_WIDTH * 0.70, 250, teamB, { scale: 1.3, clothW: 100, clothH: 66, poleH: 120 });
+    makeFlag(scene, GAME_WIDTH * 0.30, 250, teamA, { scale: 1.3, clothW: 104, clothH: 78, poleH: 120 });
+    makeFlag(scene, GAME_WIDTH * 0.70, 250, teamB, { scale: 1.3, clothW: 104, clothH: 78, poleH: 120 });
     // Corner flags grounded low on each side, well below the leaderboard.
     makeFlag(scene, 230, floorYAt(230), teamA, { scale: 0.9 });
     makeFlag(scene, GAME_WIDTH - 230, floorYAt(GAME_WIDTH - 230), teamB, { scale: 0.9 });
