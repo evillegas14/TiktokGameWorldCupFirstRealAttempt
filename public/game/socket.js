@@ -6,7 +6,7 @@ const socket = io();
 const events = [
   'state', 'vote:start', 'vote:tally',
   'match:start', 'match:goal', 'match:end',
-  'chat', 'player:join', 'players:count',
+  'chat', 'player:join', 'players:count', 'players:sync',
   'gift', 'like', 'likes:milestone',
   'leaderboard', 'tiktok:status',
 ];

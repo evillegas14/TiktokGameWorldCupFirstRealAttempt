@@ -1,4 +1,4 @@
-import { Ball } from './Ball.js';
+import { Ball, DEFAULT_HEALTH_MS } from './Ball.js';
 import { GAME_WIDTH, GAME_HEIGHT } from '../constants.js';
 
 export class BallSpawner {
@@ -6,6 +6,7 @@ export class BallSpawner {
     this.scene = scene;
     this.spawnPoint = opts.spawnPoint;
     this.maxBalls = opts.maxBalls || 30;
+    this.ballHealthMs = opts.ballHealthMs || DEFAULT_HEALTH_MS;
     this.minBalls = 2;
     this.balls = new Set();
     this.nextSpinSign = 1;
@@ -32,11 +33,13 @@ export class BallSpawner {
     if (this.balls.size >= this.maxBalls - 1) return;
     const { x, y } = this.spawnPoint;
     const a = new Ball(this.scene, x - 18, y, {
+      health: this.ballHealthMs,
       ...extraOpts,
       angularVelocity: 0.4 * this.nextSpinSign,
       velocity: { x: -0.2, y: 0 },
     });
     const b = new Ball(this.scene, x + 18, y, {
+      health: this.ballHealthMs,
       ...extraOpts,
       angularVelocity: -0.4 * this.nextSpinSign,
       velocity: { x: 0.2, y: 0 },
@@ -55,6 +58,7 @@ export class BallSpawner {
       const y = 200 + Math.random() * 100;
       const ball = new Ball(this.scene, x, y, {
         kind: 'drop',
+        health: this.ballHealthMs,
         angularVelocity: (i % 2 === 0 ? 1 : -1) * (0.3 + Math.random() * 0.4),
         velocity: { x: (Math.random() - 0.5) * 4, y: 1 + Math.random() },
       });

@@ -23,6 +23,9 @@ class SoundManager {
     this.master = this.ctx.createGain();
     this.master.gain.value = this.muted ? 0 : 0.8;
     this.master.connect(this.ctx.destination);
+    // Music requested before the first user gesture couldn't start (no context
+    // yet) — honor that request now.
+    if (this._musicWanted) this.startMusic();
   }
 
   setMuted(m) {
@@ -200,6 +203,7 @@ class SoundManager {
 
   // --- Ambience / music ---
   startMusic() {
+    this._musicWanted = true;
     if (!this.ctx || !this.musicOn || this._musicNodes.length) return;
     // Soft pad: two detuned triangles through a slow lowpass.
     const g = this.ctx.createGain();
@@ -233,6 +237,7 @@ class SoundManager {
   }
 
   stopMusic() {
+    this._musicWanted = false;
     for (const n of this._musicNodes) { try { n.stop(); } catch (e) {} }
     this._musicNodes = [];
     this._crowd = null;

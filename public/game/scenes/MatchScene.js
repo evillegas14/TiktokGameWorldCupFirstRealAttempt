@@ -31,7 +31,10 @@ export class MatchScene extends Phaser.Scene {
     this.teamA = data.teamA;
     this.teamB = data.teamB;
     this.goalsToWin = data.goalsToWin || 5;
-    this.score = { 1: 0, 2: 0 };
+    // Joining mid-match (ESC → START) must show the real score, not 0–0.
+    this.score = { 1: data.score?.[1] || 0, 2: data.score?.[2] || 0 };
+    this.maxBalls = data.maxBalls || 30;
+    this.ballHealthMs = data.ballHealthMs || 240_000;
     this.playerCounts = { left: 0, right: 0 };
     this.likeProgress = 0;
     this.likeMilestone = 200;
@@ -50,7 +53,11 @@ export class MatchScene extends Phaser.Scene {
     this.volcano = volcano;
     buildMatchFlags(this, this.teamA, this.teamB);
 
-    this.spawner = new BallSpawner(this, { spawnPoint: volcano.spawnPoint, maxBalls: 30 });
+    this.spawner = new BallSpawner(this, {
+      spawnPoint: volcano.spawnPoint,
+      maxBalls: this.maxBalls,
+      ballHealthMs: this.ballHealthMs,
+    });
     this.spawner.spawnPair();
     this.spawner.spawnPair();
 
@@ -107,6 +114,15 @@ export class MatchScene extends Phaser.Scene {
 
     // Subscribe to live events.
     this.handlerJoin = (record) => this.#addPlayer(record);
+    this.handlerRoster = (records) => {
+      for (const record of records) {
+        if (!this.players.has(record.uniqueId)) this.#addPlayer(record);
+      }
+      this.#setCounts({
+        left: records.filter((r) => r.team === 1).length,
+        right: records.filter((r) => r.team === 2).length,
+      });
+    };
     this.handlerCounts = (counts) => this.#setCounts(counts);
     this.handlerGift = (payload) => this.#handleGift(payload);
     this.handlerLike = (payload) => this.#updateLikeBar(payload);
@@ -117,12 +133,15 @@ export class MatchScene extends Phaser.Scene {
     };
     this.handlerGoal = ({ team, score }) => {
       this.score = score;
-      this.#refreshScores();
+      this.#refreshScores(true);
     };
     this.handlerLeaderboard = (rows) => this.#updateLeaderboard(rows);
     this.handlerStatus = (status) => this.#updateStatus(status);
     bus.on('player:join', this.handlerJoin);
+    bus.on('players:sync', this.handlerRoster);
     bus.on('players:count', this.handlerCounts);
+    // Restore avatars of viewers already playing (fresh matches sync an empty list).
+    socket.emit('players:request');
     bus.on('gift', this.handlerGift);
     bus.on('like', this.handlerLike);
     bus.on('likes:milestone', this.handlerMilestone);
@@ -133,6 +152,7 @@ export class MatchScene extends Phaser.Scene {
     // once() so the cleanup itself doesn't accumulate across match restarts.
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       bus.off('player:join', this.handlerJoin);
+      bus.off('players:sync', this.handlerRoster);
       bus.off('players:count', this.handlerCounts);
       bus.off('gift', this.handlerGift);
       bus.off('like', this.handlerLike);
@@ -172,15 +192,20 @@ export class MatchScene extends Phaser.Scene {
     this.leftHud = drawSide(1, 240, this.teamA.primary, this.teamA.code, this.teamA.name);
     this.rightHud = drawSide(2, GAME_WIDTH - 240, this.teamB.primary, this.teamB.code, this.teamB.name);
 
-    this.scoreText = this.add.text(GAME_WIDTH / 2, 50, `0 / ${this.goalsToWin}   :   0 / ${this.goalsToWin}`, {
-      fontSize: '54px', fontFamily: 'Impact', color: '#ffce00', stroke:'#000', strokeThickness: 4,
+    // Big broadcast-style scoreline with the win condition tucked beneath it.
+    this.scoreText = this.add.text(GAME_WIDTH / 2, 40, '', {
+      fontSize: '62px', fontFamily: 'Impact', color: '#ffce00', stroke:'#000', strokeThickness: 5,
     }).setOrigin(0.5);
+    this.add.text(GAME_WIDTH / 2, 79, `FIRST TO ${this.goalsToWin}`, {
+      fontSize: '15px', fontFamily: 'Impact', color: '#ffffff',
+    }).setOrigin(0.5).setAlpha(0.85);
+    this.#refreshScores();
 
-    this.likeLabel = this.add.text(GAME_WIDTH / 2, 95, `Likes 0 / ${this.likeMilestone}`, {
-      fontSize: '18px', color: '#ffffff',
+    this.likeLabel = this.add.text(GAME_WIDTH / 2, 100, `Likes 0 / ${this.likeMilestone}`, {
+      fontSize: '17px', color: '#ffffff',
     }).setOrigin(0.5);
-    this.add.rectangle(GAME_WIDTH / 2, 116, 400, 12, 0x000000, 0.6);
-    this.likeBar = this.add.rectangle(GAME_WIDTH / 2 - 200, 116, 0, 12, 0xff3b6a).setOrigin(0, 0.5);
+    this.add.rectangle(GAME_WIDTH / 2, 119, 400, 12, 0x000000, 0.6);
+    this.likeBar = this.add.rectangle(GAME_WIDTH / 2 - 200, 119, 0, 12, 0xff3b6a).setOrigin(0, 0.5);
   }
 
   #buildLeaderboard() {
@@ -451,8 +476,12 @@ export class MatchScene extends Phaser.Scene {
     }
   }
 
-  #refreshScores() {
-    this.scoreText.setText(`${this.score[1] || 0} / ${this.goalsToWin}   :   ${this.score[2] || 0} / ${this.goalsToWin}`);
+  #refreshScores(punch = false) {
+    this.scoreText.setText(`${this.score[1] || 0}  :  ${this.score[2] || 0}`);
+    if (punch) {
+      this.scoreText.setScale(1);
+      this.tweens.add({ targets: this.scoreText, scale: { from: 1.3, to: 1 }, duration: 360, ease: 'Back.out' });
+    }
   }
 
   #setCounts(counts) {
@@ -642,8 +671,10 @@ export class MatchScene extends Phaser.Scene {
     const scoringTeam = a.label === 'goal-left' ? 2 : 1;
     socket.emit('goal:detected', { team: scoringTeam });
     this.spawner.respawnAtHill(ball);
-    const teamColor = scoringTeam === 1 ? 0xffce00 : 0x00d4ff;
-    this.#flashAnnouncement('⚽ GOAL! ⚽', scoringTeam === 1 ? '#ffce00' : '#00d4ff');
+    // Announce WHO scored, dressed in that team's color.
+    const scorer = scoringTeam === 1 ? this.teamA : this.teamB;
+    const teamColor = Phaser.Display.Color.HexStringToColor(scorer.primary).color;
+    this.#flashAnnouncement(`⚽ GOOOAL ${scorer.code}! ⚽`, scorer.primary);
     sfx.goal();
     this.#screenFlash(0xffffff, 0.55, 320);
     this.cameras.main.shake(260, 0.007);

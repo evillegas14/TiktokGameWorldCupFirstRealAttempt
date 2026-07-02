@@ -87,7 +87,9 @@ Open the dev panel at **http://localhost:3000/dev** alongside the game and:
   (profile pic) spawns and chases the nearest ball, kicking it toward the opponent's goal.
   Each player has a **5-minute life**; sending a gift refills it to 10 minutes.
 - **Likes:** every **200 likes** drops in another opposite-spinning pair of balls.
-- **Gifts** (coin ranges + named gifts, editable in `server/gifts.json`):
+- **Gifts** (coin ranges + named gifts, editable in `server/gifts.json`). Streaks count
+  their **total** coins — 60 Roses in one streak lands tier 3, not tier 1 (a named
+  override can only upgrade the tier, never shrink a big streak):
 
   | Tier | Coins | Effect |
   |------|-------|--------|
@@ -105,7 +107,8 @@ Open the dev panel at **http://localhost:3000/dev** alongside the game and:
 ## ⚙️ Configuration
 
 - `server/config.json` — `goalsToWin`, `voteSeconds`, `winnerDisplaySeconds`,
-  `ballsPerLikeMilestone`, `ballHealthMs`, `maxBalls`, `clearPlayersBetweenMatches`.
+  `ballsPerLikeMilestone`, `ballHealthMs`, `maxBalls`, `maxPlayersPerTeam`,
+  `clearPlayersBetweenMatches`.
 - `server/gifts.json` — map gift coin-ranges and specific gift names to effect tiers.
 - `public/game/data/teams.json` — the 32 nations (code, ISO flag code, colors).
 - **Quick-test env overrides:** speed up cycles with

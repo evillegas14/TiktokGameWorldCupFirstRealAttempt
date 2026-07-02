@@ -34,7 +34,7 @@ const server = http.createServer(app);
 const io = new IOServer(server);
 
 const votes = new VoteState();
-const players = new PlayerRegistry();
+const players = new PlayerRegistry(config.maxPlayersPerTeam);
 const match = new MatchState(config);
 
 // Per-match supporter leaderboard (coins gifted), keyed by uniqueId.
@@ -53,13 +53,19 @@ function recordSupporter(user, coins, team) {
   supporters.set(user.uniqueId, prev);
 }
 
-function classifyGift(name, coins) {
+// Classify by TOTAL coins (unit × streak count) so long streaks of cheap gifts
+// earn the big effects. A named override can only upgrade the tier, never
+// downgrade a large streak back to its per-unit tier.
+function classifyGift(name, totalCoins) {
+  const topTier = gifts.tiers[gifts.tiers.length - 1];
+  const byCoins = gifts.tiers.find(t => totalCoins >= t.coinsMin && totalCoins <= t.coinsMax)
+    || (totalCoins > topTier.coinsMax ? topTier : gifts.tiers[0]);
   const overrideTier = gifts.namedOverrides[name];
   if (overrideTier) {
     const def = gifts.tiers.find(t => t.tier === overrideTier);
-    if (def) return def;
+    if (def && def.tier > byCoins.tier) return def;
   }
-  return gifts.tiers.find(t => coins >= t.coinsMin && coins <= t.coinsMax) || gifts.tiers[0];
+  return byCoins;
 }
 
 function broadcast(event, payload) {
@@ -83,9 +89,13 @@ function startVotePhase() {
     voteTimer = null;
     if (match.phase !== Phase.VOTE) return;
     const [aCode, bCode] = votes.topTwo();
-    const teamA = teams.find(t => t.code === aCode) || teams[0];
-    const teamB = teams.find(t => t.code === bCode && t.code !== teamA.code)
-      || teams.find(t => t.code !== teamA.code);
+    // Fill any missing slot with a random nation so quiet rounds still vary.
+    const randomTeam = (exclude) => {
+      const pool = teams.filter(t => t !== exclude);
+      return pool[Math.floor(Math.random() * pool.length)];
+    };
+    const teamA = teams.find(t => t.code === aCode) || randomTeam(null);
+    const teamB = teams.find(t => t.code === bCode && t.code !== teamA.code) || randomTeam(teamA);
     match.startMatch(teamA, teamB);
   }, config.voteSeconds * 1000);
 }
@@ -140,10 +150,10 @@ function handleChat(user, text) {
 }
 
 function handleGift(user, gift) {
-  const def = classifyGift(gift.name, gift.coins);
+  const totalCoins = (gift.coins || 0) * (gift.repeatCount || 1);
+  const def = classifyGift(gift.name, totalCoins);
   const playerRecord = players.players.get(user.uniqueId);
   const team = playerRecord?.team || null;
-  const totalCoins = (gift.coins || 0) * (gift.repeatCount || 1);
   if (totalCoins > 0) {
     recordSupporter(user, totalCoins, team);
     broadcast('leaderboard', leaderboardTop());
@@ -179,10 +189,10 @@ app.post('/dev/chat', (req, res) => {
   res.json({ ok: true });
 });
 app.post('/dev/gift', (req, res) => {
-  const { uniqueId = 'devuser', nickname, name = 'Rose', coins = 1 } = req.body;
+  const { uniqueId = 'devuser', nickname, name = 'Rose', coins = 1, repeatCount = 1 } = req.body;
   handleGift(
     { uniqueId, nickname: nickname || uniqueId, profilePictureUrl: null },
-    { giftId: 0, name, coins, repeatCount: 1 },
+    { giftId: 0, name, coins, repeatCount },
   );
   res.json({ ok: true });
 });
@@ -207,10 +217,17 @@ app.post('/dev/reset', (_req, res) => {
 // another can take over.
 let authoritativeSocket = null;
 
+function stateSnapshot() {
+  return { ...match.snapshot(), voteEndsAt: currentVoteEndsAt, players: players.all() };
+}
+
 io.on('connection', (socket) => {
-  socket.emit('state', { ...match.snapshot(), voteEndsAt: currentVoteEndsAt, players: players.all() });
+  socket.emit('state', stateSnapshot());
   socket.emit('leaderboard', leaderboardTop());
   socket.emit('tiktok:status', bridge.status());
+  // Clients re-entering from the menu ask for a fresh snapshot (the one from
+  // connect time goes stale as goals/phases happen while they sit in the menu).
+  socket.on('state:request', () => socket.emit('state', stateSnapshot()));
   socket.on('goal:detected', ({ team }) => {
     if (authoritativeSocket && authoritativeSocket !== socket && authoritativeSocket.connected) return;
     authoritativeSocket = socket;
@@ -218,6 +235,10 @@ io.on('connection', (socket) => {
   });
   socket.on('player:expire', ({ uniqueId }) => {
     if (players.remove(uniqueId)) broadcast('players:count', players.counts());
+  });
+  // A client entering (or re-entering) a match asks for the live player roster.
+  socket.on('players:request', () => {
+    socket.emit('players:sync', players.all());
   });
   // Operator picks DEV (offline) or LIVE (connect to a TikTok user) from the menu.
   socket.on('admin:mode', async ({ mode, username }) => {

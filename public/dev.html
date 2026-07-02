@@ -56,6 +56,7 @@
       <button onclick="sendGift('Perfume', 75)">T3 Perfume (75c)</button>
       <button onclick="sendGift('Sports Car', 200)">T4 Sports Car (200c)</button>
       <button onclick="sendGift('Universe', 1000)">T5 Universe (1000c)</button>
+      <button onclick="sendStreak('Rose', 1, 60)">Rose ×60 streak (60c → T3)</button>
     </div>
   </section>
 
@@ -98,6 +99,7 @@
     function sendChat() { post('/dev/chat', { ...ident(), text: document.getElementById('chatText').value }); }
     function sendChatText(t) { post('/dev/chat', { ...ident(), text: t }); }
     function sendGift(name, coins) { post('/dev/gift', { ...ident(), name, coins }); }
+    function sendStreak(name, coins, repeatCount) { post('/dev/gift', { ...ident(), name, coins, repeatCount }); }
     function sendLikes(count) { post('/dev/like', { ...ident(), count }); }
     function forceScore(team) { post('/dev/score', { team }); }
     function reset() { post('/dev/reset', {}); }

@@ -3,6 +3,7 @@
   "voteSeconds": 60,
   "winnerDisplaySeconds": 5,
   "clearPlayersBetweenMatches": true,
+  "maxPlayersPerTeam": 30,
   "ballsPerLikeMilestone": 200,
   "ballHealthMs": 240000,
   "maxBalls": 30

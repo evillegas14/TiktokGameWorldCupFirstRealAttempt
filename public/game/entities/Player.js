@@ -80,11 +80,11 @@ export class Player {
       this.#applyPic(key);
       return;
     }
+    // Per-file event: several players loading at once each get their own
+    // callback (the shared 'complete' event would cross-fire between them).
+    // A failed load just never fires this, keeping the initials fallback.
     this.scene.load.image(key, url);
-    this.scene.load.once('complete', () => {
-      if (this.scene.textures.exists(key)) this.#applyPic(key);
-    });
-    this.scene.load.once('loaderror', () => {/* keep initials fallback */});
+    this.scene.load.once('filecomplete-image-' + key, () => this.#applyPic(key));
     this.scene.load.start();
   }
 

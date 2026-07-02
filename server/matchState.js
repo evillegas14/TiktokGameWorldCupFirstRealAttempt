@@ -23,7 +23,12 @@ export class MatchState extends EventEmitter {
     this.teamB = teamB;
     this.score = { 1: 0, 2: 0 };
     this.phase = Phase.MATCH;
-    this.emit('match:start', { teamA, teamB, goalsToWin: this.config.goalsToWin });
+    this.emit('match:start', {
+      teamA, teamB,
+      goalsToWin: this.config.goalsToWin,
+      maxBalls: this.config.maxBalls,
+      ballHealthMs: this.config.ballHealthMs,
+    });
   }
 
   scoreGoal(team) {
@@ -68,6 +73,8 @@ export class MatchState extends EventEmitter {
       likesProgress: this.likesSinceLastSpawn,
       likesMilestone: this.config.ballsPerLikeMilestone,
       goalsToWin: this.config.goalsToWin,
+      maxBalls: this.config.maxBalls,
+      ballHealthMs: this.config.ballHealthMs,
     };
   }
 }

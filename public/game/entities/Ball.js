@@ -1,4 +1,5 @@
 import { floorYAt, CATEGORY_VOLCANO } from '../world/Field.js';
+import { GAME_WIDTH } from '../constants.js';
 
 export const BALL_RADIUS = 22;
 export const SUPER_RADIUS = 32;
@@ -120,7 +121,7 @@ export class Ball {
       this.idleMs = (this.idleMs || 0) + delta;
       if (this.idleMs > 900) {
         this.idleMs = 0;
-        const dir = this.image.x < 960 ? 1 : -1; // nudge toward the far side
+        const dir = this.image.x < GAME_WIDTH / 2 ? 1 : -1; // nudge toward the far side
         this.image.setVelocity((5 + Math.random() * 5) * dir, -(7 + Math.random() * 5));
         this.image.setAngularVelocity((Math.random() - 0.5) * 0.9);
       }

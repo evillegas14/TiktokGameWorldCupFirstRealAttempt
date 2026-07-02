@@ -3,7 +3,7 @@ import { MenuScene } from './scenes/MenuScene.js';
 import { VoteScene } from './scenes/VoteScene.js';
 import { MatchScene } from './scenes/MatchScene.js';
 import { WinnerScene } from './scenes/WinnerScene.js';
-import { bus, getLast } from './socket.js';
+import { bus, getLast, socket } from './socket.js';
 import { sfx } from './audio/Sound.js';
 import { GAME_WIDTH, GAME_HEIGHT } from './constants.js';
 
@@ -38,18 +38,29 @@ window.__phaserGame = game;
 // follows it once the player presses START, and ESC returns to the menu.
 let started = false;
 
-// START: jump into whatever phase the server is currently in.
+// START: jump into whatever phase the server is currently in. The snapshot
+// cached at connect time goes stale while the player sits in the menu, so ask
+// the server for a fresh one and only fall back to the cache if it's slow.
 bus.on('ui:start', () => {
   started = true;
   game.scene.stop('MenuScene');
-  const st = getLast('state');
-  if (st && st.phase === 'match' && st.teamA && st.teamB) {
-    game.scene.start('MatchScene', {
-      teamA: st.teamA, teamB: st.teamB, goalsToWin: st.goalsToWin, score: st.score,
-    });
-  } else {
-    game.scene.start('VoteScene', { endsAt: st?.voteEndsAt });
-  }
+  let entered = false;
+  const enter = (st) => {
+    if (entered) return;
+    entered = true;
+    bus.off('state', enter);
+    if (st && st.phase === 'match' && st.teamA && st.teamB) {
+      game.scene.start('MatchScene', {
+        teamA: st.teamA, teamB: st.teamB, goalsToWin: st.goalsToWin, score: st.score,
+        maxBalls: st.maxBalls, ballHealthMs: st.ballHealthMs,
+      });
+    } else {
+      game.scene.start('VoteScene', { endsAt: st?.voteEndsAt });
+    }
+  };
+  bus.on('state', enter);
+  socket.emit('state:request');
+  setTimeout(() => enter(getLast('state')), 600);
 });
 
 // ESC: leave the game and return to the menu (server keeps running).
