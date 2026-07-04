@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>TikTok World Cup</title>
+  <style>
+    html, body { margin:0; padding:0; background:#000; height:100%; overflow:hidden; font-family: -apple-system, system-ui, Arial, sans-serif; }
+    #game { width:100vw; height:100vh; }
+
+    /* Start menu overlay */
+    #menu {
+      position:fixed; inset:0; z-index:10; display:flex; align-items:center; justify-content:center;
+      background:radial-gradient(circle at 50% 30%, #14361f 0%, #0a1130 70%, #05060f 100%);
+      color:#fff;
+    }
+    #menu .card { width:min(680px, 92vw); text-align:center; }
+    #menu h1 { font-size:clamp(34px,6vw,72px); margin:0 0 6px; color:#ffce00; letter-spacing:1px;
+      text-shadow:0 3px 0 #000; }
+    #menu .sub { margin:0 0 26px; font-size:clamp(14px,2.2vw,22px); opacity:.9; }
+    #menu .panel { background:#0009; border:1px solid #ffffff22; border-radius:14px; padding:22px; }
+    #menu label { display:block; text-align:left; font-size:14px; opacity:.8; margin:0 0 6px; }
+    #menu input {
+      width:100%; box-sizing:border-box; font-size:20px; padding:12px 14px; border-radius:10px;
+      border:2px solid #444; background:#161616; color:#fff; outline:none;
+    }
+    #menu input:focus { border-color:#1db954; }
+    #menu .btn { width:100%; font-size:22px; font-weight:800; padding:14px; margin-top:12px;
+      border:none; border-radius:10px; cursor:pointer; color:#fff; transition:transform .06s, filter .15s; }
+    #menu .btn:hover { filter:brightness(1.1); }
+    #menu .btn:active { transform:scale(.98); }
+    #menu .btn.live { background:#e8344e; }
+    #menu .btn.dev  { background:#2a6cf0; }
+    #menu .or { margin:14px 0 2px; opacity:.6; font-size:14px; }
+    #menu .err { color:#ff8a8a; min-height:18px; margin-top:8px; font-size:14px; }
+    #menu .howto { list-style:none; padding:0; margin:22px 0 6px; text-align:left; font-size:15px; line-height:1.9; }
+    #menu .hint { font-size:13px; opacity:.7; margin-top:14px; }
+    #menu .hint b { color:#ffce00; }
+    #menu #menu-status { margin-left:8px; }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+
+  <div id="menu">
+    <div class="card">
+      <h1>⚽ TIKTOK WORLD CUP</h1>
+      <p class="sub">Live interactive soccer — your viewers play!</p>
+      <div class="panel">
+        <label for="tiktok-username">Your TikTok username</label>
+        <input id="tiktok-username" type="text" placeholder="@yourhandle" autocomplete="off" spellcheck="false" />
+        <button id="go-live" class="btn live">🔴 GO LIVE — connect to TikTok</button>
+        <div class="or">— or —</div>
+        <button id="dev-mode" class="btn dev">🧪 DEV MODE — test offline (use /dev panel)</button>
+        <div id="menu-error" class="err"></div>
+      </div>
+      <ul class="howto">
+        <li>🗳️ <b>!vote &lt;CODE&gt;</b> — vote a nation in (e.g. <i>!vote BRA</i>)</li>
+        <li>🏃 <b>!join 1</b> / <b>!join 2</b> — play on the left / right team</li>
+        <li>🎁 <b>Send gifts</b> — cannon shots, multi-ball, super-balls, chaos</li>
+        <li>❤️ <b>Likes</b> — every 200 likes drops in more balls</li>
+      </ul>
+      <p class="hint">Press <b>ESC</b> during play to return here · status: <span id="menu-status">DEV MODE</span></p>
+    </div>
+  </div>
+
+  <script src="/vendor/phaser.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="/game/menu.js"></script>
+  <script type="module" src="/game/main.js"></script>
+</body>
+</html>

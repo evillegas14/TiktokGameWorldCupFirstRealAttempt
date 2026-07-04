@@ -1,0 +1,21 @@
+{
+  "tiers": [
+    { "tier": 1, "coinsMin": 1,   "coinsMax": 9,    "effect": "cannonShot",     "label": "Cannon shot" },
+    { "tier": 2, "coinsMin": 10,  "coinsMax": 49,   "effect": "multiBallDrop",  "label": "5-ball drop", "count": 5 },
+    { "tier": 3, "coinsMin": 50,  "coinsMax": 99,   "effect": "aggression",     "label": "Aggression", "durationMs": 15000 },
+    { "tier": 4, "coinsMin": 100, "coinsMax": 499,  "effect": "superBall",      "label": "Super ball" },
+    { "tier": 5, "coinsMin": 500, "coinsMax": 99999,"effect": "chaosDrop",      "label": "Chaos drop", "count": 10, "shake": true }
+  ],
+  "namedOverrides": {
+    "Rose": 1,
+    "Heart": 1,
+    "Finger Heart": 2,
+    "GG": 2,
+    "Perfume": 3,
+    "Galaxy": 3,
+    "Sports Car": 4,
+    "Lion": 4,
+    "Universe": 5,
+    "Rocket": 5
+  }
+}

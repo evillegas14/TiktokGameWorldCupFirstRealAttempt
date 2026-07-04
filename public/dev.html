@@ -1,0 +1,118 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Dev Panel — TikTok World Cup</title>
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; background:#111; color:#eee; padding:24px; max-width:900px; margin:auto; }
+    h1 { color:#ffce00; }
+    section { background:#1c1c1c; border-radius:8px; padding:16px; margin-bottom:16px; }
+    label { display:inline-block; margin-right:8px; }
+    input, select, button { font-size:14px; padding:6px 10px; margin:4px; border-radius:4px; border:1px solid #444; background:#222; color:#eee; }
+    button { background:#264; border-color:#386; cursor:pointer; }
+    button:hover { background:#386; }
+    .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .gift-row button { min-width:140px; }
+    #log { font-family:monospace; font-size:12px; background:#000; padding:8px; height:200px; overflow:auto; border-radius:4px; }
+  </style>
+</head>
+<body>
+  <h1>Dev Panel</h1>
+  <p>Inject fake TikTok events. Open the game at <a href="/" target="_blank" style="color:#7cf">/</a>.</p>
+
+  <section>
+    <h3>Identity (used as fake viewer)</h3>
+    <label>uniqueId <input id="uid" value="devuser1" /></label>
+    <label>nickname <input id="nick" value="Dev User 1" /></label>
+  </section>
+
+  <section>
+    <h3>Chat</h3>
+    <div class="row">
+      <input id="chatText" value="!vote BRA" style="flex:1; min-width:200px;" />
+      <button onclick="sendChat()">Send chat</button>
+    </div>
+    <div class="row">
+      <button onclick="sendChatText('!vote BRA')">!vote BRA</button>
+      <button onclick="sendChatText('!vote ARG')">!vote ARG</button>
+      <button onclick="sendChatText('!vote FRA')">!vote FRA</button>
+      <button onclick="sendChatText('!vote GER')">!vote GER</button>
+      <button onclick="sendChatText('!join 1')">!join 1</button>
+      <button onclick="sendChatText('!join 2')">!join 2</button>
+    </div>
+    <div class="row">
+      <button onclick="bulkVotes('BRA', 5)">+5 votes BRA</button>
+      <button onclick="bulkVotes('ARG', 5)">+5 votes ARG</button>
+      <button onclick="bulkJoin(1, 4)">+4 joins team 1</button>
+      <button onclick="bulkJoin(2, 4)">+4 joins team 2</button>
+    </div>
+  </section>
+
+  <section>
+    <h3>Gifts</h3>
+    <div class="row gift-row">
+      <button onclick="sendGift('Rose', 1)">T1 Rose (1c)</button>
+      <button onclick="sendGift('Finger Heart', 25)">T2 Finger Heart (25c)</button>
+      <button onclick="sendGift('Perfume', 75)">T3 Perfume (75c)</button>
+      <button onclick="sendGift('Sports Car', 200)">T4 Sports Car (200c)</button>
+      <button onclick="sendGift('Universe', 1000)">T5 Universe (1000c)</button>
+      <button onclick="sendStreak('Rose', 1, 60)">Rose ×60 streak (60c → T3)</button>
+    </div>
+  </section>
+
+  <section>
+    <h3>Likes</h3>
+    <div class="row">
+      <button onclick="sendLikes(1)">+1 like</button>
+      <button onclick="sendLikes(50)">+50 likes</button>
+      <button onclick="sendLikes(200)">+200 likes (milestone)</button>
+    </div>
+  </section>
+
+  <section>
+    <h3>Match control</h3>
+    <div class="row">
+      <button onclick="forceScore(1)">Score for Team 1</button>
+      <button onclick="forceScore(2)">Score for Team 2</button>
+      <button onclick="reset()" style="background:#822;border-color:#a44">Reset (back to vote)</button>
+    </div>
+  </section>
+
+  <section>
+    <h3>Log</h3>
+    <div id="log"></div>
+  </section>
+
+  <script>
+    const log = (m) => {
+      const el = document.getElementById('log');
+      el.textContent = new Date().toLocaleTimeString() + '  ' + m + '\n' + el.textContent;
+    };
+    const ident = () => ({
+      uniqueId: document.getElementById('uid').value,
+      nickname: document.getElementById('nick').value,
+    });
+    async function post(url, body) {
+      const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      log(url + ' -> ' + r.status);
+    }
+    function sendChat() { post('/dev/chat', { ...ident(), text: document.getElementById('chatText').value }); }
+    function sendChatText(t) { post('/dev/chat', { ...ident(), text: t }); }
+    function sendGift(name, coins) { post('/dev/gift', { ...ident(), name, coins }); }
+    function sendStreak(name, coins, repeatCount) { post('/dev/gift', { ...ident(), name, coins, repeatCount }); }
+    function sendLikes(count) { post('/dev/like', { ...ident(), count }); }
+    function forceScore(team) { post('/dev/score', { team }); }
+    function reset() { post('/dev/reset', {}); }
+    function bulkVotes(code, n) {
+      for (let i = 0; i < n; i++) {
+        post('/dev/chat', { uniqueId: 'bulk_'+code+'_'+i, nickname: 'Bulk '+i, text: '!vote '+code });
+      }
+    }
+    function bulkJoin(team, n) {
+      for (let i = 0; i < n; i++) {
+        post('/dev/chat', { uniqueId: 'bulkjoin_'+team+'_'+i, nickname: 'Player '+i, text: '!join '+team });
+      }
+    }
+  </script>
+</body>
+</html>
